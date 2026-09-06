@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AlexKassel\DevKit\Console;
 
+use AlexKassel\DevKit\OrganizationResolver;
 use AlexKassel\DevKit\PackageCloner;
 use AlexKassel\DevKit\PackageLocalizer;
 use Illuminate\Console\Command;
@@ -10,13 +13,16 @@ use RuntimeException;
 
 class ClonePackageCommand extends Command
 {
-    protected $signature = 'pkg:clone {package : Composer package name} {--branch= : Explicit branch to clone} {--recursive : Localize owned require dependencies with one explicit dev-* alternative} {--json : Emit a machine-readable result}';
-
-    protected $aliases = ['package:clone'];
+    protected $signature = 'pkg:clone
+        {package : Composer package name}
+        {--branch= : Explicit branch to clone}
+        {--recursive : Localize owned require dependencies with one explicit dev-* alternative}
+        {--org= : Additional comma-separated trusted organization vendors}
+        {--json : Emit a machine-readable result}';
 
     protected $description = 'Clone a package, optionally localizing owned dependencies, without Composer installation';
 
-    public function handle(PackageCloner $cloner, PackageLocalizer $localizer): int
+    public function handle(PackageCloner $cloner, PackageLocalizer $localizer, OrganizationResolver $resolver): int
     {
         /** @var ConfigRepository $config */
         $config = $this->laravel->make('config');
@@ -26,14 +32,25 @@ class ClonePackageCommand extends Command
         $branchOpt = $this->option('branch');
         $branch = is_string($branchOpt) ? $branchOpt : '';
         $sources = $config->get('dev-kit.sources', []);
-        $organizations = $config->get('dev-kit.organizations', []);
+        $configuredOrgs = $config->get('dev-kit.organizations', []);
+        /** @var string|null $cliOrg */
+        $cliOrg = $this->option('org');
+
+        $root = $this->laravel->basePath();
+        $organizations = $resolver->resolve(
+            $root,
+            $packageName,
+            $cliOrg,
+            is_array($configuredOrgs) ? $configuredOrgs : []
+        );
+
         $pattern = $defaultPattern !== '' ? $defaultPattern : null;
         $isJson = (bool) $this->option('json');
 
         if ($this->option('recursive')) {
             try {
                 $result = $localizer->localize(
-                    $this->laravel->basePath(),
+                    $root,
                     $packageName,
                     $branch,
                     $sources,
@@ -58,7 +75,7 @@ class ClonePackageCommand extends Command
 
         try {
             $result = $cloner->clonePackage(
-                $this->laravel->basePath(),
+                $root,
                 $packageName,
                 $branch,
                 $sources,

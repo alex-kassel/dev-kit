@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AlexKassel\DevKit\Console;
 
 use AlexKassel\DevKit\ReleaseChecker;
@@ -11,8 +13,6 @@ class ReleaseCheckPackageCommand extends Command
     protected $signature = 'pkg:release-check
         {package : The vendor/package name or relative package path}
         {--json : Output machine-readable JSON summary}';
-
-    protected $aliases = ['package:release-check'];
 
     protected $description = 'Run pre-flight release-gate checks (clean tree, audit freshness, quality, README)';
 

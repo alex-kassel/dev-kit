@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AlexKassel\DevKit\Console;
 
 use AlexKassel\DevKit\PackageSynchronizer;
@@ -11,13 +13,11 @@ class SyncPackagesCommand extends Command
 {
     protected $signature = 'pkg:sync
         {--clean : Remove all @dev packages from root composer.json}
-        {--filter= : Filter packages by glob pattern (e.g. *scraper*, alex-kassel/*)}
+        {--filter= : Filter packages by glob pattern (e.g. *engine*, acme/*)}
         {--dump : Automatically run composer dump-autoload after sync}
         {--no-dump : Do not prompt or run composer dump-autoload}
         {--dry-run : Preview changes without modifying composer.json}
         {--json : Output machine-readable JSON summary}';
-
-    protected $aliases = ['package:sync'];
 
     protected $description = 'Synchronize local packages in packages/* with root composer.json require';
 

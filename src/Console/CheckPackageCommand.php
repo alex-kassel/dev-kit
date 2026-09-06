@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AlexKassel\DevKit\Console;
 
+use AlexKassel\DevKit\OrganizationResolver;
 use AlexKassel\DevKit\PackageInventory;
 use AlexKassel\DevKit\PackageVerifier;
 use Illuminate\Console\Command;
@@ -19,11 +22,9 @@ class CheckPackageCommand extends Command
         {--only= : Comma-separated list of checks to run (composer,pint,phpstan,tests)}
         {--json : Emit a machine-readable result}';
 
-    protected $aliases = ['package:check'];
-
     protected $description = 'Run full quality verification suite (Composer, Pint, PHPStan, Tests)';
 
-    public function handle(PackageVerifier $verifier, PackageInventory $inventory): int
+    public function handle(PackageVerifier $verifier, PackageInventory $inventory, OrganizationResolver $orgResolver): int
     {
         $rawPackage = $this->argument('package');
         $package = is_string($rawPackage) && $rawPackage !== '' ? $rawPackage : null;
@@ -57,10 +58,17 @@ class CheckPackageCommand extends Command
                 return self::FAILURE;
             }
 
-            // Interactive prompt
+            // Interactive prompt with dynamic organization resolution
             /** @var Repository $configRepository */
             $configRepository = $this->laravel->make('config');
-            $organizations = $configRepository->get('dev-kit.organizations', ['alex-kassel']);
+            $configuredOrgs = $configRepository->get('dev-kit.organizations', []);
+            $organizations = $orgResolver->resolve(
+                $root,
+                null,
+                null,
+                is_array($configuredOrgs) ? $configuredOrgs : []
+            );
+
             $packages = $inventory->inspect($root, $organizations, []);
             if ($packages === []) {
                 $this->error('No local packages found in workspace.');

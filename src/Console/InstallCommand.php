@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AlexKassel\DevKit\Console;
 
 use AlexKassel\DevKit\WorkspaceInstaller;
@@ -9,8 +11,6 @@ use RuntimeException;
 class InstallCommand extends Command
 {
     protected $signature = 'pkg:install {--dry-run : Preview changes without writing files} {--force : Overwrite existing agent configuration and skill files} {--json : Emit a machine-readable result}';
-
-    protected $aliases = ['dev-kit:install'];
 
     protected $description = 'Prepare local package directories, Composer repository, scripts and agent skills';
 

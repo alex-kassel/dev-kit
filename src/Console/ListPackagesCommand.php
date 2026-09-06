@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AlexKassel\DevKit\Console;
 
+use AlexKassel\DevKit\OrganizationResolver;
 use AlexKassel\DevKit\PackageInventory;
 use Composer\InstalledVersions;
 use Illuminate\Console\Command;
@@ -12,12 +15,12 @@ class ListPackagesCommand extends Command
 {
     protected $signature = 'pkg:list {--json : Emit a machine-readable result}';
 
-    protected $aliases = ['package:list'];
-
     protected $description = 'List local packages and their Composer installation state';
 
-    public function handle(PackageInventory $inventory): int
+    public function handle(PackageInventory $inventory, OrganizationResolver $orgResolver): int
     {
+        $root = $this->laravel->basePath();
+
         try {
             $installed = [];
             foreach (InstalledVersions::getInstalledPackages() as $name) {
@@ -26,10 +29,18 @@ class ListPackagesCommand extends Command
                     $installed[$name] = ['path' => $path, 'version' => InstalledVersions::getPrettyVersion($name)];
                 }
             }
+
             /** @var Repository $config */
             $config = $this->laravel->make('config');
-            $organizations = $config->get('dev-kit.organizations', []);
-            $packages = $inventory->inspect($this->laravel->basePath(), $organizations, $installed);
+            $configuredOrgs = $config->get('dev-kit.organizations', []);
+            $organizations = $orgResolver->resolve(
+                $root,
+                null,
+                null,
+                is_array($configuredOrgs) ? $configuredOrgs : []
+            );
+
+            $packages = $inventory->inspect($root, $organizations, $installed);
         } catch (RuntimeException $exception) {
             if ($this->option('json')) {
                 $this->line(json_encode([

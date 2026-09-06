@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AlexKassel\DevKit\Console;
 
 use AlexKassel\DevKit\ReadmeValidator;
@@ -11,8 +13,6 @@ class ReadmePackageCommand extends Command
     protected $signature = 'pkg:readme
         {package : The vendor/package name or relative package path}
         {--json : Output machine-readable JSON summary}';
-
-    protected $aliases = ['package:readme'];
 
     protected $description = 'Validate package README.md compliance with unified enterprise standard';
 
