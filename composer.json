@@ -1,0 +1,33 @@
+{
+    "name": "alex-kassel/dev-kit",
+    "description": "Development workspace tools for modular Laravel applications.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.3",
+        "composer-runtime-api": "^2.1",
+        "illuminate/console": "^11.0 || ^12.0 || ^13.0",
+        "illuminate/support": "^11.0 || ^12.0 || ^13.0",
+        "symfony/process": "^7.0 || ^8.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0 || ^12.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "AlexKassel\\DevKit\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "AlexKassel\\DevKit\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "AlexKassel\\DevKit\\DevKitServiceProvider"
+            ]
+        }
+    }
+}
