@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit bootstrap="../../../vendor/autoload.php" cacheDirectory=".phpunit.cache">
+<phpunit bootstrap="tests/bootstrap.php" cacheDirectory=".phpunit.cache">
     <testsuites>
         <testsuite name="DevKit">
             <directory>tests</directory>
         </testsuite>
     </testsuites>
+    <source>
+        <include>
+            <directory suffix=".php">src</directory>
+        </include>
+    </source>
 </phpunit>
