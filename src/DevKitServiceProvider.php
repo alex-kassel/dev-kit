@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AlexKassel\DevKit;
 
 use AlexKassel\DevKit\Console\CheckPackageCommand;

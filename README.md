@@ -123,4 +123,4 @@ Please see [CHANGELOG.md](CHANGELOG.md) for details on changes in recent release
 
 ## License
 
-Proprietary / MIT. Please see [LICENSE](LICENSE) for license details.
+The MIT License (MIT). Please see [LICENSE](LICENSE) for license details.
