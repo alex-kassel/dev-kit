@@ -19,17 +19,30 @@ class WorkspaceInstallerTest extends TestCase
 
     protected function tearDown(): void
     {
-        foreach (['composer.json', '.gitignore', 'packages/keep.txt'] as $path) {
-            if (is_file($this->root.'/'.$path)) {
-                unlink($this->root.'/'.$path);
+        $this->deleteDirectory($this->root);
+    }
+
+    private function deleteDirectory(string $dir): void
+    {
+        if (! is_dir($dir)) {
+            return;
+        }
+        $items = scandir($dir);
+        if ($items === false) {
+            return;
+        }
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+            $path = $dir.'/'.$item;
+            if (is_dir($path)) {
+                $this->deleteDirectory($path);
+            } else {
+                unlink($path);
             }
         }
-        if (is_dir($this->root.'/packages')) {
-            rmdir($this->root.'/packages');
-        } elseif (is_file($this->root.'/packages')) {
-            unlink($this->root.'/packages');
-        }
-        rmdir($this->root);
+        rmdir($dir);
     }
 
     public function test_install_preserves_settings_and_second_run_is_byte_identical(): void
@@ -140,5 +153,46 @@ class WorkspaceInstallerTest extends TestCase
         }
         $this->assertSame($original, file_get_contents($this->root.'/composer.json'));
         $this->assertSame('keep', file_get_contents($this->root.'/packages'));
+    }
+
+    public function test_install_registers_scripts_and_installs_agent_files(): void
+    {
+        $installer = new WorkspaceInstaller;
+        $result = $installer->install($this->root);
+
+        $this->assertSame('installed', $result['status']);
+        $this->assertContains('AGENTS.md', $result['files']);
+        $this->assertContains('.agents/skills/package-verification/SKILL.md', $result['files']);
+
+        $this->assertFileExists($this->root.'/AGENTS.md');
+        $this->assertFileExists($this->root.'/.agents/skills/package-verification/SKILL.md');
+        $this->assertFileExists($this->root.'/.agents/skills/package-scaffolding/SKILL.md');
+
+        $manifest = json_decode(file_get_contents($this->root.'/composer.json'));
+        $this->assertSame('@php artisan pkg:check', $manifest->scripts->{'pkg:check'});
+        $this->assertSame('@php artisan pkg:sync', $manifest->scripts->{'pkg:sync'});
+        $this->assertSame('@php artisan pkg:install', $manifest->scripts->{'pkg:install'});
+        $this->assertSame('phpunit', $manifest->scripts->test);
+
+        // Second run without modifications should be unchanged
+        $secondResult = $installer->install($this->root);
+        $this->assertSame('unchanged', $secondResult['status']);
+    }
+
+    public function test_force_overwrites_agent_files(): void
+    {
+        $installer = new WorkspaceInstaller;
+        $installer->install($this->root);
+
+        file_put_contents($this->root.'/AGENTS.md', '# Modified Agents');
+
+        $noForceResult = $installer->install($this->root, false, false);
+        $this->assertSame('unchanged', $noForceResult['status']);
+        $this->assertSame('# Modified Agents', file_get_contents($this->root.'/AGENTS.md'));
+
+        $forceResult = $installer->install($this->root, false, true);
+        $this->assertSame('installed', $forceResult['status']);
+        $this->assertContains('AGENTS.md', $forceResult['files']);
+        $this->assertStringContainsString('AGENTS.MD — Repository Guidelines', file_get_contents($this->root.'/AGENTS.md'));
     }
 }

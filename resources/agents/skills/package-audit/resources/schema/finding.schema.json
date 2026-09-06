@@ -1,0 +1,133 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/laravel-audit/schemas/v1/finding.schema.json",
+  "title": "AuditFinding",
+  "description": "Specification for an individual defect, architectural concern, or finding identified during package audit.",
+  "type": "object",
+  "required": [
+    "id",
+    "root_cause_id",
+    "category",
+    "severity",
+    "title",
+    "description",
+    "location",
+    "evidence",
+    "recommendation",
+    "confidence",
+    "requires_human_decision",
+    "verification"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Z]{3,4}-[0-9]{3}$",
+      "description": "Unique finding ID assigned by the agent (e.g., ARCH-001, DB-003, SEC-002, COMP-001)."
+    },
+    "root_cause_id": {
+      "type": "string",
+      "pattern": "^RC-[A-Z0-9_-]+$",
+      "description": "Root cause identifier for linking and deduplicating related findings across agents (e.g., RC-MIGRATION-PREFIX, RC-UNBOUND-RAW-SQL)."
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "architecture",
+        "code_quality",
+        "database",
+        "security",
+        "composer",
+        "testing",
+        "consumer_release"
+      ],
+      "description": "Audit category domain of the finding."
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "blocker",
+        "critical",
+        "major",
+        "minor",
+        "info"
+      ],
+      "description": "Severity level: blocker (must not release), critical (very high risk/breaking), major (serious defect), minor (maintainability/DX), info (observation/recommendation)."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 120,
+      "description": "Concise summary title of the finding."
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed explanation of the issue, context, impact, and consequences for consumers."
+    },
+    "location": {
+      "type": "object",
+      "required": ["file"],
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "Relative file path within package repository (e.g., src/Services/PaymentGateway.php)."
+        },
+        "line_start": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Starting line number in file."
+        },
+        "line_end": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Ending line number in file."
+        },
+        "symbol": {
+          "type": "string",
+          "description": "Name of class, method, interface, trait, or function, if applicable."
+        }
+      }
+    },
+    "evidence": {
+      "type": "string",
+      "description": "Deterministic proof: command output, error log, code citation, or reproducible test result."
+    },
+    "recommendation": {
+      "type": "string",
+      "description": "Concrete remediation guidance and code example."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Confidence level: 0.90-1.00 = directly verified, 0.75-0.89 = strong evidence, 0.50-0.74 = plausible/partially verified, <0.50 = weak hypothesis."
+    },
+    "requires_human_decision": {
+      "type": "boolean",
+      "description": "Whether this finding requires human architectural or product confirmation."
+    },
+    "decision_context": {
+      "type": "string",
+      "description": "Context, tradeoffs, and available options for the developer if requires_human_decision is true."
+    },
+    "verification": {
+      "type": "object",
+      "required": ["command", "expected", "status"],
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "CLI command to verify the fix during remediation (e.g., vendor/bin/pest tests/Feature/PrefixTest.php)."
+        },
+        "expected": {
+          "type": "string",
+          "description": "Expected result or output substring proving successful remediation."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["not_verified", "verified_pass", "verified_fail"],
+          "default": "not_verified",
+          "description": "Current verification status."
+        }
+      }
+    }
+  }
+}

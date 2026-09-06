@@ -1,0 +1,39 @@
+{
+  "audit_framework_version": "1.0.0",
+  "started_at": "2026-08-25T16:00:00Z",
+  "completed_at": null,
+  "total_duration_seconds": null,
+  "package": {
+    "name": "vendor/package-name",
+    "target_version": "x.y.z"
+  },
+  "git": {
+    "commit": "HEAD_COMMIT_SHA",
+    "branch": "main",
+    "tag": null,
+    "dirty": false
+  },
+  "environment": {
+    "php": "8.3.x",
+    "composer": "2.7.x",
+    "laravel": "^11.0",
+    "orchestra_testbench": "^9.0",
+    "os": "Linux / Windows / macOS",
+    "available_databases": ["sqlite", "mysql", "pgsql"]
+  },
+  "support_matrix": {
+    "php": ["8.2", "8.3", "8.4"],
+    "laravel": ["10.*", "11.*", "12.*"],
+    "databases": ["sqlite", "mysql", "pgsql"]
+  },
+  "agents": {
+    "architecture": { "status": "PENDING", "findings_count": 0, "duration_seconds": null },
+    "code_quality": { "status": "PENDING", "findings_count": 0, "duration_seconds": null },
+    "database": { "status": "PENDING", "findings_count": 0, "duration_seconds": null },
+    "security": { "status": "PENDING", "findings_count": 0, "duration_seconds": null },
+    "composer": { "status": "PENDING", "findings_count": 0, "duration_seconds": null },
+    "testing": { "status": "PENDING", "findings_count": 0, "duration_seconds": null },
+    "consumer_release": { "status": "PENDING", "findings_count": 0, "duration_seconds": null }
+  },
+  "release_verdict": "PENDING"
+}

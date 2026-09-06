@@ -1,0 +1,102 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/laravel-audit/schemas/v1/agent-report.schema.json",
+  "title": "AgentAuditReportEnvelope",
+  "description": "Strict envelope contract for a specialized audit agent report.",
+  "type": "object",
+  "required": [
+    "agent_id",
+    "audit_status",
+    "reason",
+    "tools_run",
+    "tools_failed",
+    "tools_missing",
+    "scope_checked",
+    "scope_not_checked",
+    "findings"
+  ],
+  "properties": {
+    "agent_id": {
+      "type": "string",
+      "enum": [
+        "architecture",
+        "code_quality",
+        "database",
+        "security",
+        "composer",
+        "testing",
+        "consumer_release"
+      ]
+    },
+    "started_at": {
+      "type": "string",
+      "description": "ISO 8601 timestamp when the agent started execution."
+    },
+    "completed_at": {
+      "type": "string",
+      "description": "ISO 8601 timestamp when the agent finished execution."
+    },
+    "duration_seconds": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Total execution time in seconds spent by this agent."
+    },
+    "audit_status": {
+      "type": "string",
+      "enum": ["PASS", "FAIL", "PARTIAL", "BLOCKED", "NOT_APPLICABLE"],
+      "description": "PASS: all checks passed without blocking defects; FAIL: critical defects identified; PARTIAL: part of scope could not be completed; BLOCKED: essential tool unavailable, check hindered; NOT_APPLICABLE: audit domain not applicable to package type."
+    },
+    "reason": {
+      "type": "string",
+      "description": "Concise explanation of status (especially mandatory when PARTIAL, BLOCKED, or NOT_APPLICABLE)."
+    },
+    "tools_run": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["command", "exit_code", "status"],
+        "properties": {
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL", "SKIPPED"] }
+        }
+      }
+    },
+    "tools_failed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["command", "error_message"],
+        "properties": {
+          "command": { "type": "string" },
+          "error_message": { "type": "string" }
+        }
+      }
+    },
+    "tools_missing": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["tool", "impact"],
+        "properties": {
+          "tool": { "type": "string" },
+          "impact": { "type": "string" }
+        }
+      }
+    },
+    "scope_checked": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "scope_not_checked": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "finding.schema.json"
+      }
+    }
+  }
+}

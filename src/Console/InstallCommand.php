@@ -8,16 +8,20 @@ use RuntimeException;
 
 class InstallCommand extends Command
 {
-    protected $signature = 'pkg:install {--dry-run : Preview changes without writing files} {--json : Emit a machine-readable result}';
+    protected $signature = 'pkg:install {--dry-run : Preview changes without writing files} {--force : Overwrite existing agent configuration and skill files} {--json : Emit a machine-readable result}';
 
     protected $aliases = ['dev-kit:install'];
 
-    protected $description = 'Prepare local package directories, Composer repository and Git ignore';
+    protected $description = 'Prepare local package directories, Composer repository, scripts and agent skills';
 
     public function handle(WorkspaceInstaller $installer): int
     {
         try {
-            $result = $installer->install($this->laravel->basePath(), (bool) $this->option('dry-run'));
+            $result = $installer->install(
+                $this->laravel->basePath(),
+                (bool) $this->option('dry-run'),
+                (bool) $this->option('force')
+            );
         } catch (RuntimeException $exception) {
             if ($this->option('json')) {
                 $this->line(json_encode([
