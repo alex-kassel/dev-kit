@@ -8,3 +8,5 @@
 /.gitattributes export-ignore
 /.audit export-ignore
 /.audits export-ignore
+/.phpunit.cache export-ignore
+/composer.lock export-ignore
