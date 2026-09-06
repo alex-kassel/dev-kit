@@ -19,4 +19,6 @@ if ($autoloader === null) {
     throw new RuntimeException('Composer autoloader not found. Run composer install.');
 }
 
+$autoloader->addPsr4('AlexKassel\\DevKit\\Tests\\', __DIR__);
+
 return $autoloader;

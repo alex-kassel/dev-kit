@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AlexKassel\DevKit\Tests;
 
 use AlexKassel\DevKit\PackageVerifier;

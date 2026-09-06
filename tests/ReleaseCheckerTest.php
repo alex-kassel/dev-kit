@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AlexKassel\DevKit\Tests;
 
 use AlexKassel\DevKit\PackageVerifier;
@@ -9,6 +11,7 @@ use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RuntimeException;
+use Symfony\Component\Process\Process;
 
 class ReleaseCheckerTest extends TestCase
 {
@@ -79,11 +82,11 @@ class ReleaseCheckerTest extends TestCase
         file_put_contents($pkgDir.'/.gitattributes', "* text=auto\n/tests export-ignore\n");
 
         // Initialize git
-        exec("git -C \"{$pkgDir}\" init -b main");
-        exec("git -C \"{$pkgDir}\" config user.email \"test@example.com\"");
-        exec("git -C \"{$pkgDir}\" config user.name \"Test Runner\"");
-        exec("git -C \"{$pkgDir}\" add .");
-        exec("git -C \"{$pkgDir}\" commit -m \"initial commit\"");
+        (new Process(['git', 'init', '-b', 'main'], $pkgDir))->mustRun();
+        (new Process(['git', 'config', 'user.email', 'test@example.com'], $pkgDir))->mustRun();
+        (new Process(['git', 'config', 'user.name', 'Test Runner'], $pkgDir))->mustRun();
+        (new Process(['git', 'add', '.'], $pkgDir))->mustRun();
+        (new Process(['git', 'commit', '-m', 'initial commit'], $pkgDir))->mustRun();
 
         $verifier = $this->createMock(PackageVerifier::class);
         $verifier->method('verify')->willReturn([
