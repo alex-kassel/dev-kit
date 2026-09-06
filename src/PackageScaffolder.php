@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AlexKassel\DevKit;
 
 use RuntimeException;
@@ -116,6 +118,7 @@ class PackageScaffolder
         string $archetype
     ): array {
         $year = date('Y');
+        $author = $this->resolveAuthor($vendor);
         $files = [];
 
         // 1. composer.json
@@ -133,10 +136,7 @@ class PackageScaffolder
             'license' => 'MIT',
             'keywords' => $keywords,
             'authors' => [
-                [
-                    'name' => 'Alex Kassel',
-                    'role' => 'Developer',
-                ],
+                $author,
             ],
             'require' => [
                 'php' => '^8.2 || ^8.3 || ^8.4',
@@ -331,7 +331,7 @@ GITATTRIBUTES;
         $files['LICENSE'] = <<<LICENSE
 The MIT License (MIT)
 
-Copyright (c) {$year} Alex Kassel
+Copyright (c) {$year} {$author['name']}
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -478,6 +478,35 @@ README;
         file_put_contents($composerPath, json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");
 
         return 'registered';
+    }
+
+    /**
+     * @return array{name: string, role: string, email?: string}
+     */
+    private function resolveAuthor(string $vendor): array
+    {
+        $process = new Process(['git', 'config', 'user.name']);
+        $process->run();
+        $name = trim($process->getOutput());
+
+        if ($name === '') {
+            $name = $this->toPascalCase($vendor);
+        }
+
+        $emailProcess = new Process(['git', 'config', 'user.email']);
+        $emailProcess->run();
+        $email = trim($emailProcess->getOutput());
+
+        $author = [
+            'name' => $name,
+            'role' => 'Developer',
+        ];
+
+        if ($email !== '') {
+            $author['email'] = $email;
+        }
+
+        return $author;
     }
 
     private function toPascalCase(string $input): string
