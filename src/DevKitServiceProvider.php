@@ -7,6 +7,9 @@ use AlexKassel\DevKit\Console\ClonePackageCommand;
 use AlexKassel\DevKit\Console\InstallCommand;
 use AlexKassel\DevKit\Console\ListPackagesCommand;
 use AlexKassel\DevKit\Console\MakePackageCommand;
+use AlexKassel\DevKit\Console\ReadmePackageCommand;
+use AlexKassel\DevKit\Console\ReleaseCheckPackageCommand;
+use AlexKassel\DevKit\Console\SyncPackagesCommand;
 use Illuminate\Support\ServiceProvider;
 
 class DevKitServiceProvider extends ServiceProvider
@@ -29,6 +32,9 @@ class DevKitServiceProvider extends ServiceProvider
                 ClonePackageCommand::class,
                 CheckPackageCommand::class,
                 MakePackageCommand::class,
+                SyncPackagesCommand::class,
+                ReadmePackageCommand::class,
+                ReleaseCheckPackageCommand::class,
             ]);
         }
     }
