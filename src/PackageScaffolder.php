@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace AlexKassel\DevKit;
 
+use JsonException;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 
@@ -460,8 +461,13 @@ README;
             return 'unreadable_root_composer';
         }
 
-        /** @var array<string, mixed>|null $json */
-        $json = json_decode($content, true);
+        try {
+            /** @var array<string, mixed>|null $json */
+            $json = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return 'invalid_root_composer';
+        }
+
         if (! is_array($json)) {
             return 'invalid_root_composer';
         }
@@ -475,7 +481,13 @@ README;
         $require[$package] = '@dev';
         $json['require'] = $require;
 
-        file_put_contents($composerPath, json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");
+        try {
+            $encoded = json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return 'invalid_root_composer';
+        }
+
+        file_put_contents($composerPath, $encoded."\n");
 
         return 'registered';
     }
