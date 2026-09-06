@@ -25,7 +25,7 @@
 ## Key Features
 
 * **Deterministic Workspace Setup (pkg:install):** Prepares host path repositories, gitignore rules, Artisan command shortcuts, and synchronizes agent instructions with optional --force overwrite.
-* **Smart Package Generator (pkg:make):** Scaffolds enterprise packages with archetype presets (library, ngine, domain), strict typing, and full test suites.
+* **Smart Package Generator (pkg:make):** Scaffolds enterprise packages with archetype presets (library, engine, domain), strict typing, and full test suites.
 * **Remote Git Ingestion (pkg:clone):** Clones standalone packages from remote Git repositories directly into the workspace and auto-wires them.
 * **Comprehensive Quality Gate (pkg:check):** Executes 4-stage quality verification (Composer validation, Pint style fixing, PHPStan Level 8, PHPUnit tests).
 * **Package Inventory (pkg:list):** Scans the workspace, reports versioning and path repository registration status.
@@ -45,17 +45,17 @@
 
 ## Installation
 
-Require lex-kassel/dev-kit as a development dependency in your Laravel project:
+Require `alex-kassel/dev-kit` as a development dependency in your Laravel project:
 
-`ash
+```bash
 composer require alex-kassel/dev-kit --dev
-`
+```
 
 Initialize your workspace and install agent tooling:
 
-`ash
+```bash
 php artisan pkg:install
-`
+```
 
 ---
 
@@ -63,7 +63,7 @@ php artisan pkg:install
 
 ### Workspace Preparation & Package Discovery
 
-`ash
+```bash
 # Initialize workspace repositories and agent skills
 php artisan pkg:install
 
@@ -72,11 +72,11 @@ php artisan pkg:list
 
 # Synchronize local packages into composer.json
 php artisan pkg:sync
-`
+```
 
 ### Scaffolding & Quality Assurance
 
-`ash
+```bash
 # Scaffold a new library or engine package interactively
 php artisan pkg:make my-vendor/my-package --archetype=engine
 
@@ -85,17 +85,17 @@ php artisan pkg:check alex-kassel/dev-kit
 
 # Automatically fix code style violations
 php artisan pkg:check alex-kassel/dev-kit --fix
-`
+```
 
 ### Documentation & Release Pre-flight
 
-`ash
+```bash
 # Validate README structure against canonical rules
 php artisan pkg:readme alex-kassel/dev-kit
 
 # Run pre-flight checks before tagging a release
 php artisan pkg:release-check alex-kassel/dev-kit
-`
+```
 
 ---
 
@@ -103,21 +103,27 @@ php artisan pkg:release-check alex-kassel/dev-kit
 
 Run unit and integration test suites:
 
-`ash
+```bash
 vendor/bin/phpunit packages/alex-kassel/dev-kit/tests
-`
+```
 
 Or verify using the universal check command:
 
-`ash
+```bash
 php artisan pkg:check alex-kassel/dev-kit
-`
+```
 
 ---
 
 ## Changelog
 
 Please see [CHANGELOG.md](CHANGELOG.md) for details on changes in recent releases.
+
+---
+
+## Security Vulnerabilities
+
+Please review [Security Policies](https://github.com/alex-kassel/dev-kit/security/policy) on how to report vulnerabilities.
 
 ---
 
