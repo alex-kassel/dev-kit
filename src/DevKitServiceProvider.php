@@ -2,6 +2,7 @@
 
 namespace AlexKassel\DevKit;
 
+use AlexKassel\DevKit\Console\CheckPackageCommand;
 use AlexKassel\DevKit\Console\ClonePackageCommand;
 use AlexKassel\DevKit\Console\InstallCommand;
 use AlexKassel\DevKit\Console\ListPackagesCommand;
@@ -25,6 +26,7 @@ class DevKitServiceProvider extends ServiceProvider
                 InstallCommand::class,
                 ListPackagesCommand::class,
                 ClonePackageCommand::class,
+                CheckPackageCommand::class,
             ]);
         }
     }

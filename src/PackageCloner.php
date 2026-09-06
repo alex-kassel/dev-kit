@@ -47,7 +47,7 @@ class PackageCloner
             if (! is_dir(dirname($destination)) && ! @mkdir(dirname($destination), 0777, true) && ! is_dir(dirname($destination))) {
                 throw new RuntimeException('Cannot create package vendor directory.');
             }
-            if (file_exists($destination) || is_link($destination)) {
+            if (file_exists($destination)) {
                 throw new RuntimeException('Destination appeared while cloning; it was not changed.');
             }
             if (! @rename($staging, $destination)) {
@@ -71,6 +71,9 @@ class PackageCloner
         ];
     }
 
+    /**
+     * @return array{name: string, path: string, branch: string, commit: string, require: stdClass, require_dev: stdClass}
+     */
     public function inspectCheckout(string $root, string $package): array
     {
         if (! preg_match('~^[a-z0-9]+(?:[_.-][a-z0-9]+)*/[a-z0-9]+(?:[_.-][a-z0-9]+)*$~D', $package)) {
@@ -126,6 +129,9 @@ class PackageCloner
         return $manifest;
     }
 
+    /**
+     * @param  list<string>  $arguments
+     */
     private function git(array $arguments, string $cwd): string
     {
         $process = new Process(['git', ...$arguments], $cwd);

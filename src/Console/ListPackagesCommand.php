@@ -5,6 +5,7 @@ namespace AlexKassel\DevKit\Console;
 use AlexKassel\DevKit\PackageInventory;
 use Composer\InstalledVersions;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Config\Repository;
 use RuntimeException;
 
 class ListPackagesCommand extends Command
@@ -25,7 +26,9 @@ class ListPackagesCommand extends Command
                     $installed[$name] = ['path' => $path, 'version' => InstalledVersions::getPrettyVersion($name)];
                 }
             }
-            $organizations = $this->laravel['config']->get('dev-kit.organizations', []);
+            /** @var Repository $config */
+            $config = $this->laravel->make('config');
+            $organizations = $config->get('dev-kit.organizations', []);
             $packages = $inventory->inspect($this->laravel->basePath(), $organizations, $installed);
         } catch (RuntimeException $exception) {
             if ($this->option('json')) {

@@ -8,6 +8,9 @@ class PackageLocalizer
 {
     public function __construct(private PackageCloner $cloner, private SourceLocator $sources) {}
 
+    /**
+     * @return array{schema_version: int, status: string, composer_updated: bool, packages: list<array<string, mixed>>, requirements: list<array<string, mixed>>}
+     */
     public function localize(string $root, string $package, string $branch, mixed $sources, mixed $organizations, ?string $defaultPattern = null): array
     {
         if ($branch === '') {
@@ -50,7 +53,9 @@ class PackageLocalizer
                 'commit' => $checkout['commit'],
                 'action' => $action,
             ];
-            foreach ($checkout['require'] as $dependency => $constraint) {
+            /** @var array<string, string> $requires */
+            $requires = (array) $checkout['require'];
+            foreach ($requires as $dependency => $constraint) {
                 $owned = str_contains($dependency, '/') && in_array(explode('/', $dependency, 2)[0], $organizations, true);
                 $edges[] = [
                     'from' => $name,
@@ -62,7 +67,8 @@ class PackageLocalizer
                     continue;
                 }
                 $branches = [];
-                foreach (preg_split('/\s*\|\|\s*/', $constraint) as $alternative) {
+                $alternatives = preg_split('/\s*\|\|\s*/', $constraint) ?: [];
+                foreach ($alternatives as $alternative) {
                     if (preg_match('~^dev-([a-zA-Z0-9][a-zA-Z0-9._/-]*)$~D', trim($alternative), $matches)) {
                         $branches[] = $matches[1];
                     }

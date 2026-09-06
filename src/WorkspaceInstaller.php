@@ -43,7 +43,8 @@ class WorkspaceInstaller
 
         $ignorePath = $root.'/.gitignore';
         $ignore = file_exists($ignorePath) ? $this->read($ignorePath) : '';
-        $rules = array_values(array_filter(preg_split('/\r?\n/', $ignore), fn (string $line): bool => trim($line) !== '' && ! str_starts_with($line, '#')));
+        $rawRules = preg_split('/\r?\n/', $ignore) ?: [];
+        $rules = array_values(array_filter($rawRules, fn (string $line): bool => trim($line) !== '' && ! str_starts_with($line, '#')));
         if (! in_array($rules === [] ? '' : end($rules), ['/packages/*/*', '/packages/*/*/'], true)) {
             $newline = str_contains($ignore, "\r\n") ? "\r\n" : "\n";
             $writes['.gitignore'] = $ignore.($ignore !== '' && ! str_ends_with($ignore, "\n") ? $newline : '').'/packages/*/*'.$newline;
@@ -71,8 +72,10 @@ class WorkspaceInstaller
             foreach ($writes as $path => $contents) {
                 $this->write($root.'/'.$path, $contents);
             }
-            if ($createDirectory && ! @mkdir($packages, 0777, false) && ! is_dir($packages)) {
-                throw new RuntimeException('Could not create packages/. Earlier file changes may have been applied; rerun after fixing permissions.');
+            if ($createDirectory && ! @mkdir($packages, 0777, false)) {
+                if (! is_dir($packages)) {
+                    throw new RuntimeException('Could not create packages/. Earlier file changes may have been applied; rerun after fixing permissions.');
+                }
             }
         }
 
