@@ -6,6 +6,7 @@ use AlexKassel\DevKit\Console\CheckPackageCommand;
 use AlexKassel\DevKit\Console\ClonePackageCommand;
 use AlexKassel\DevKit\Console\InstallCommand;
 use AlexKassel\DevKit\Console\ListPackagesCommand;
+use AlexKassel\DevKit\Console\MakePackageCommand;
 use Illuminate\Support\ServiceProvider;
 
 class DevKitServiceProvider extends ServiceProvider
@@ -27,6 +28,7 @@ class DevKitServiceProvider extends ServiceProvider
                 ListPackagesCommand::class,
                 ClonePackageCommand::class,
                 CheckPackageCommand::class,
+                MakePackageCommand::class,
             ]);
         }
     }
