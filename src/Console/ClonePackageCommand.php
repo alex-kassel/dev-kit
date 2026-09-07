@@ -10,8 +10,8 @@ use AlexKassel\DevKit\PackageLocalizer;
 use AlexKassel\DevKit\PackageSynchronizer;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Illuminate\Support\Facades\Process;
 use RuntimeException;
-use Symfony\Component\Process\Process;
 
 class ClonePackageCommand extends Command
 {
@@ -94,16 +94,16 @@ class ClonePackageCommand extends Command
                     $result['packages']
                 )));
 
-                $process = new Process(['composer', 'update', ...$packageNames, '--with-all-dependencies', '--prefer-dist', '--no-interaction'], $root);
-                $process->setTimeout(600.0);
+                $cmd = ['composer', 'update', ...$packageNames, '--with-all-dependencies', '--prefer-dist', '--no-interaction'];
+                $pending = Process::path($root)->timeout(600);
                 if (! $isJson) {
-                    $process->run(function (string $type, string $buffer): void {
+                    $processResult = $pending->run($cmd, function (string $type, string $buffer): void {
                         $this->output->write($buffer);
                     });
                 } else {
-                    $process->run();
+                    $processResult = $pending->run($cmd);
                 }
-                $updated = ($process->getExitCode() === 0);
+                $updated = $processResult->successful();
             }
 
             $result['composer_updated'] = $updated;
@@ -146,16 +146,16 @@ class ClonePackageCommand extends Command
             if (! $isJson) {
                 $this->info('Running composer update for '.$packageName.'...');
             }
-            $process = new Process(['composer', 'update', $packageName, '--with-all-dependencies', '--prefer-dist', '--no-interaction'], $root);
-            $process->setTimeout(300.0);
+            $cmd = ['composer', 'update', $packageName, '--with-all-dependencies', '--prefer-dist', '--no-interaction'];
+            $pending = Process::path($root)->timeout(300);
             if (! $isJson) {
-                $process->run(function (string $type, string $buffer): void {
+                $processResult = $pending->run($cmd, function (string $type, string $buffer): void {
                     $this->output->write($buffer);
                 });
             } else {
-                $process->run();
+                $processResult = $pending->run($cmd);
             }
-            $updated = ($process->getExitCode() === 0);
+            $updated = $processResult->successful();
         }
 
         $result['composer_synced'] = $synced;

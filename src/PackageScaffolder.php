@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace AlexKassel\DevKit;
 
+use Illuminate\Support\Facades\Process;
 use JsonException;
 use RuntimeException;
-use Symfony\Component\Process\Process;
 
 class PackageScaffolder
 {
@@ -71,9 +71,8 @@ class PackageScaffolder
             if ($initGit) {
                 $gitDir = $packageDir.DIRECTORY_SEPARATOR.'.git';
                 if (! is_dir($gitDir)) {
-                    $process = new Process(['git', 'init', '-b', 'main'], $packageDir);
-                    $process->run();
-                    $gitStatus = $process->isSuccessful() ? 'initialized' : 'failed';
+                    $result = Process::path($packageDir)->run(['git', 'init', '-b', 'main']);
+                    $gitStatus = $result->successful() ? 'initialized' : 'failed';
                 } else {
                     $gitStatus = 'already_initialized';
                 }
@@ -498,17 +497,15 @@ README;
      */
     private function resolveAuthor(string $vendor): array
     {
-        $process = new Process(['git', 'config', 'user.name']);
-        $process->run();
-        $name = trim($process->getOutput());
+        $nameResult = Process::run(['git', 'config', 'user.name']);
+        $name = trim($nameResult->output());
 
         if ($name === '') {
             $name = $this->toPascalCase($vendor);
         }
 
-        $emailProcess = new Process(['git', 'config', 'user.email']);
-        $emailProcess->run();
-        $email = trim($emailProcess->getOutput());
+        $emailResult = Process::run(['git', 'config', 'user.email']);
+        $email = trim($emailResult->output());
 
         $author = [
             'name' => $name,

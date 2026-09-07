@@ -1,6 +1,9 @@
 <?php
 
 declare(strict_types=1);
+use Illuminate\Container\Container;
+use Illuminate\Process\Factory;
+use Illuminate\Support\Facades\Facade;
 
 $candidates = [
     __DIR__.'/../vendor/autoload.php',
@@ -20,5 +23,11 @@ if ($autoloader === null) {
 }
 
 $autoloader->addPsr4('AlexKassel\\DevKit\\Tests\\', __DIR__);
+
+if (Facade::getFacadeApplication() === null) {
+    $app = new Container;
+    $app->singleton('process', fn () => new Factory);
+    Facade::setFacadeApplication($app);
+}
 
 return $autoloader;

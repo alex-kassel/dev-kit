@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace AlexKassel\DevKit;
 
+use Illuminate\Support\Facades\Process;
 use RuntimeException;
 use Symfony\Component\Filesystem\Filesystem;
-use Symfony\Component\Process\Process;
 
 class IsolatedPackageVerifier
 {
@@ -108,10 +108,15 @@ class IsolatedPackageVerifier
      */
     private function run(array $command, string $directory, array $environment = []): string
     {
-        $process = new Process($command, $directory, $environment);
-        $process->setTimeout(600);
-        $process->mustRun();
+        $pendingProcess = Process::path($directory)->timeout(600);
+        if ($environment !== []) {
+            $pendingProcess = $pendingProcess->env($environment);
+        }
+        $result = $pendingProcess->run($command);
+        if (! $result->successful()) {
+            throw new RuntimeException($result->errorOutput() ?: $result->output());
+        }
 
-        return $process->getOutput();
+        return $result->output();
     }
 }

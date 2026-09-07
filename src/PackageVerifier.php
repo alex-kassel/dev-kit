@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace AlexKassel\DevKit;
 
+use Illuminate\Contracts\Process\ProcessResult;
+use Illuminate\Support\Facades\Process;
 use RuntimeException;
-use Symfony\Component\Process\Exception\ProcessTimedOutException;
-use Symfony\Component\Process\Process;
 
 class PackageVerifier
 {
@@ -143,78 +143,60 @@ class PackageVerifier
         $failedTotal = 0;
 
         if ($parallel && file_exists($root.DIRECTORY_SEPARATOR.'artisan') && count($packages) > 1) {
-            $pool = [];
-            $queue = $packages;
-            $packageResults = [];
+            $timeout = $isolated || ($only !== null && in_array('isolated', $only, true)) ? 1500 : 600;
 
-            while (count($packageResults) < count($packages)) {
-                while (count($pool) < $concurrency && count($queue) > 0) {
-                    $pkg = array_shift($queue);
-                    if ($pkg === null) {
-                        break;
-                    }
-                    $cmd = [PHP_BINARY, 'artisan', 'pkg:check', $pkg, '--json'];
-                    if ($fix) {
-                        $cmd[] = '--fix';
-                    }
-                    if ($only !== null) {
-                        $cmd[] = '--only='.implode(',', $only);
-                    }
-                    if ($isolated) {
-                        $cmd[] = '--isolated';
-                    }
-
-                    $process = new Process($cmd, $root);
-                    $process->setTimeout($isolated || ($only !== null && in_array('isolated', $only, true)) ? 1500.0 : 600.0);
-                    $process->start();
-                    $pool[$pkg] = $process;
-                }
-
-                foreach ($pool as $pkg => $process) {
-                    try {
-                        $process->checkTimeout();
-                    } catch (ProcessTimedOutException) {
-                        // checkTimeout stops the process; collect its failed result below.
-                    }
-                    if (! $process->isRunning()) {
-                        unset($pool[$pkg]);
-                        $output = trim($process->getOutput());
-                        try {
-                            $decoded = json_decode($output, true, 512, JSON_THROW_ON_ERROR);
-                            if (! is_array($decoded) || ! isset($decoded['status']) || ! $process->isSuccessful()) {
-                                throw new \JsonException('Invalid or unsuccessful verification process response.');
-                            }
-                            $packageResults[$pkg] = $decoded;
-                        } catch (\JsonException) {
-                            $packageResults[$pkg] = [
-                                'package' => $pkg,
-                                'path' => 'packages/'.$pkg,
-                                'status' => 'failed',
-                                'summary' => ['passed' => 0, 'failed' => 1, 'skipped' => 0, 'not_configured' => 0],
-                                'checks' => [
-                                    'process' => [
-                                        'name' => 'Package Verification Process',
-                                        'status' => 'failed',
-                                        'exit_code' => $process->getExitCode() ?? 1,
-                                        'command' => $process->getCommandLine(),
-                                        'output' => $process->getErrorOutput() ?: $process->getOutput(),
-                                        'duration_ms' => 0,
-                                    ],
-                                ],
-                            ];
+            $chunks = array_chunk($packages, $concurrency);
+            foreach ($chunks as $chunk) {
+                $poolResults = Process::pool(function ($pool) use ($chunk, $root, $fix, $only, $isolated, $timeout): void {
+                    foreach ($chunk as $pkg) {
+                        $cmd = [PHP_BINARY, 'artisan', 'pkg:check', $pkg, '--json'];
+                        if ($fix) {
+                            $cmd[] = '--fix';
                         }
+                        if ($only !== null) {
+                            $cmd[] = '--only='.implode(',', $only);
+                        }
+                        if ($isolated) {
+                            $cmd[] = '--isolated';
+                        }
+
+                        $pool->as($pkg)->path($root)->timeout($timeout)->command($cmd);
                     }
-                }
+                })->wait();
 
-                if (count($pool) > 0) {
-                    usleep(25000);
-                }
-            }
+                $poolCollection = $poolResults->collect();
+                foreach ($chunk as $pkg) {
+                    /** @var ProcessResult $processResult */
+                    $processResult = $poolCollection->get($pkg);
+                    $output = trim($processResult->output());
 
-            foreach ($packages as $pkg) {
-                if (isset($packageResults[$pkg])) {
-                    $results[] = $packageResults[$pkg];
-                    if (($packageResults[$pkg]['status'] ?? '') === 'passed') {
+                    try {
+                        $decoded = json_decode($output, true, 512, JSON_THROW_ON_ERROR);
+                        if (! is_array($decoded) || ! isset($decoded['status']) || ! $processResult->successful()) {
+                            throw new \JsonException('Invalid or unsuccessful verification process response.');
+                        }
+                        $packageResult = $decoded;
+                    } catch (\JsonException) {
+                        $packageResult = [
+                            'package' => $pkg,
+                            'path' => 'packages/'.$pkg,
+                            'status' => 'failed',
+                            'summary' => ['passed' => 0, 'failed' => 1, 'skipped' => 0, 'not_configured' => 0],
+                            'checks' => [
+                                'process' => [
+                                    'name' => 'Package Verification Process',
+                                    'status' => 'failed',
+                                    'exit_code' => $processResult->exitCode() ?? 1,
+                                    'command' => implode(' ', array_map('escapeshellarg', [PHP_BINARY, 'artisan', 'pkg:check', $pkg, '--json'])),
+                                    'output' => $processResult->errorOutput() ?: $processResult->output(),
+                                    'duration_ms' => 0,
+                                ],
+                            ],
+                        ];
+                    }
+
+                    $results[] = $packageResult;
+                    if (($packageResult['status'] ?? '') === 'passed') {
                         $passedTotal++;
                     } else {
                         $failedTotal++;
@@ -386,13 +368,15 @@ class PackageVerifier
     private function runCommand(array $command, string $cwd, string $checkName, array $env = []): array
     {
         $startTime = microtime(true);
-        $process = new Process($command, $cwd, $env ?: null);
-        $process->setTimeout(120.0);
+        $pendingProcess = Process::path($cwd)->timeout(120);
+        if ($env !== []) {
+            $pendingProcess = $pendingProcess->env($env);
+        }
 
         try {
-            $process->run();
-            $exitCode = $process->getExitCode() ?? 1;
-            $output = trim($process->getOutput()."\n".$process->getErrorOutput());
+            $result = $pendingProcess->run($command);
+            $exitCode = $result->exitCode() ?? 1;
+            $output = trim($result->output()."\n".$result->errorOutput());
         } catch (\Throwable $exception) {
             $exitCode = 1;
             $output = 'Process execution failed: '.$exception->getMessage();

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace AlexKassel\DevKit;
 
+use Illuminate\Support\Facades\Process;
 use RuntimeException;
-use Symfony\Component\Process\Process;
 
 class PackageRemover
 {
@@ -102,14 +102,16 @@ class PackageRemover
     /** @param list<string> $arguments */
     private function git(string $path, array $arguments): string
     {
-        $process = new Process(['git', ...$arguments], $path);
-        $process->setTimeout(30);
         try {
-            $process->mustRun();
+            $result = Process::path($path)->timeout(30)->run(['git', ...$arguments]);
         } catch (\Throwable $exception) {
             throw new RuntimeException('Cannot establish safe removal: '.$exception->getMessage(), 0, $exception);
         }
 
-        return $process->getOutput();
+        if (! $result->successful()) {
+            throw new RuntimeException('Cannot establish safe removal: '.($result->errorOutput() ?: $result->output()));
+        }
+
+        return $result->output();
     }
 }

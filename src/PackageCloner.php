@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace AlexKassel\DevKit;
 
+use Illuminate\Process\Exceptions\ProcessTimedOutException;
+use Illuminate\Support\Facades\Process;
 use JsonException;
 use RuntimeException;
 use stdClass;
-use Symfony\Component\Process\Exception\ProcessTimedOutException;
-use Symfony\Component\Process\Process;
 
 class PackageCloner
 {
@@ -175,21 +175,21 @@ class PackageCloner
      */
     private function git(array $arguments, string $cwd): string
     {
-        $process = new Process(['git', ...$arguments], $cwd);
-        $process->setTimeout(60.0);
         try {
-            $process->mustRun();
+            $result = Process::path($cwd)->timeout(60)->run(['git', ...$arguments]);
         } catch (ProcessTimedOutException $exception) {
             throw new RuntimeException('Git operation timed out: git '.implode(' ', $arguments), 0, $exception);
-        } catch (RuntimeException $exception) {
-            $error = trim($process->getErrorOutput());
-            if ($error === '') {
-                $error = trim($process->getOutput());
-            }
-            throw new RuntimeException('Git failed (exit '.($process->getExitCode() ?? 1).'): '.$error, 0, $exception);
         }
 
-        return $process->getOutput();
+        if (! $result->successful()) {
+            $error = trim($result->errorOutput());
+            if ($error === '') {
+                $error = trim($result->output());
+            }
+            throw new RuntimeException('Git failed (exit '.($result->exitCode() ?? 1).'): '.$error);
+        }
+
+        return $result->output();
     }
 
     private function assertContained(string $root, string $path): void

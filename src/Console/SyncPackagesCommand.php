@@ -6,8 +6,8 @@ namespace AlexKassel\DevKit\Console;
 
 use AlexKassel\DevKit\PackageSynchronizer;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Process;
 use RuntimeException;
-use Symfony\Component\Process\Process;
 
 class SyncPackagesCommand extends Command
 {
@@ -57,9 +57,8 @@ class SyncPackagesCommand extends Command
 
         if (! $isDryRun && $hasChanges) {
             if ($autoDump || (! $noDump && ! $isJson && $this->confirm('Run composer dump-autoload now?', true))) {
-                $process = new Process(['composer', 'dump-autoload'], $this->laravel->basePath());
-                $process->run();
-                $dumpExecuted = ($process->getExitCode() === 0);
+                $processResult = Process::path($this->laravel->basePath())->run(['composer', 'dump-autoload']);
+                $dumpExecuted = $processResult->successful();
             }
         }
 

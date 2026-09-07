@@ -6,8 +6,8 @@ namespace AlexKassel\DevKit;
 
 use Composer\Semver\Semver;
 use Composer\Semver\VersionParser;
+use Illuminate\Support\Facades\Process;
 use RuntimeException;
-use Symfony\Component\Process\Process;
 
 class PackageLocalizer
 {
@@ -136,13 +136,17 @@ class PackageLocalizer
         if (isset($manifest['version']) && is_string($manifest['version'])) {
             $versions[] = $manifest['version'];
         } elseif (file_exists($packagePath.'/.git')) {
-            $status = new Process(['git', 'status', '--porcelain'], $packagePath);
-            $status->mustRun();
+            $statusResult = Process::path($packagePath)->run(['git', 'status', '--porcelain']);
+            if (! $statusResult->successful()) {
+                throw new RuntimeException('Git status failed: '.$statusResult->errorOutput());
+            }
             // A tag only describes HEAD, never dirty working-tree content or another commit.
-            if (trim($status->getOutput()) === '') {
-                $tags = new Process(['git', 'tag', '--points-at', 'HEAD'], $packagePath);
-                $tags->mustRun();
-                foreach (preg_split('/\r?\n/', trim($tags->getOutput())) ?: [] as $tag) {
+            if (trim($statusResult->output()) === '') {
+                $tagsResult = Process::path($packagePath)->run(['git', 'tag', '--points-at', 'HEAD']);
+                if (! $tagsResult->successful()) {
+                    throw new RuntimeException('Git tag failed: '.$tagsResult->errorOutput());
+                }
+                foreach (preg_split('/\r?\n/', trim($tagsResult->output())) ?: [] as $tag) {
                     if ($tag !== '') {
                         try {
                             (new VersionParser)->normalize($tag);

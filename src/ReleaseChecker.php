@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace AlexKassel\DevKit;
 
+use Illuminate\Support\Facades\Process;
 use RuntimeException;
-use Symfony\Component\Process\Process;
 
 class ReleaseChecker
 {
@@ -58,11 +58,10 @@ class ReleaseChecker
                 'message' => 'Independent git repository verified.',
             ];
 
-            $statusProcess = new Process(['git', 'status', '--porcelain'], $packagePath);
-            $statusProcess->run();
-            $statusOutput = trim($statusProcess->getOutput());
+            $statusResult = Process::path($packagePath)->run(['git', 'status', '--porcelain']);
+            $statusOutput = trim($statusResult->output());
 
-            if ($statusProcess->getExitCode() === 0 && empty($statusOutput)) {
+            if ($statusResult->successful() && empty($statusOutput)) {
                 $checks['git_tree'] = [
                     'name' => 'Clean Git Working Tree',
                     'status' => 'passed',
@@ -77,9 +76,8 @@ class ReleaseChecker
             }
 
             // Latest Tag
-            $tagProcess = new Process(['git', 'tag', '-l', '--sort=-v:refname'], $packagePath);
-            $tagProcess->run();
-            $tags = array_values(array_filter(explode("\n", trim($tagProcess->getOutput()))));
+            $tagResult = Process::path($packagePath)->run(['git', 'tag', '-l', '--sort=-v:refname']);
+            $tags = array_values(array_filter(explode("\n", trim($tagResult->output()))));
             $latestTag = ! empty($tags) ? trim($tags[0]) : 'none (initial release)';
         }
 
@@ -90,14 +88,12 @@ class ReleaseChecker
             $certifiedCommit = $this->extractCertifiedCommit($gateContent);
 
             if ($certifiedCommit !== null && is_dir($gitDir)) {
-                $deltaProcess = new Process(
-                    ['git', 'rev-list', '--count', "{$certifiedCommit}..HEAD", '--', 'src/', 'config/', 'database/', 'composer.json'],
-                    $packagePath
+                $deltaResult = Process::path($packagePath)->run(
+                    ['git', 'rev-list', '--count', "{$certifiedCommit}..HEAD", '--', 'src/', 'config/', 'database/', 'composer.json']
                 );
-                $deltaProcess->run();
 
-                if ($deltaProcess->getExitCode() === 0) {
-                    $deltaCount = (int) trim($deltaProcess->getOutput());
+                if ($deltaResult->successful()) {
+                    $deltaCount = (int) trim($deltaResult->output());
 
                     if ($deltaCount === 0) {
                         $checks['audit_freshness'] = [
