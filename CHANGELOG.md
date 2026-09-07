@@ -5,6 +5,17 @@ All notable changes to `alex-kassel/dev-kit` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.4] - 2026-09-07
+
+### Added
+- Architectural Proposal 001 (`docs/proposals/001-modular-workspace-vision.md`) capturing full vision and concept brief.
+- Prioritized development roadmap (`ROADMAP.md`) tracking upcoming critical, high, and medium milestones.
+- Section 5 ("Package Roadmaps & Architectural Proposals") in `AGENTS.md` and template, instructing agents to inspect package roadmaps before planning changes.
+- Added `phpstan/phpstan` (`^1.12 || ^2.0`) to core dependencies to guarantee static analysis tool availability in host workspaces.
+
+### Changed
+- Promoted development tooling (`orchestra/testbench` and `phpunit/phpunit`) from `require-dev` to `require` to guarantee automatic installation in host environments.
+
 ## [0.0.3] - 2026-09-07
 
 ### Added
