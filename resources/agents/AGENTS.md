@@ -31,6 +31,11 @@ Welcome to the project repository. Any AI agent (Antigravity, Cursor, Copilot, e
    - If a user's suggestion introduces technical debt, anti-patterns, or violates industry conventions, the agent MUST respectfully challenge the idea, explain the trade-offs, present concrete counter-arguments, and propose the standard community-approved solution before taking action.
 7. **Cross-Platform Engineering**:
    - Ensure all code, paths (forward slashes/`DIRECTORY_SEPARATOR`), and commands run seamlessly across Windows, Linux, and macOS.
+8. **Dev-Kit Toolchain Packaging Invariant**:
+   - `alex-kassel/dev-kit` is intentionally designed as an **Opinionated Meta-Toolchain (DevKit)**.
+   - Because Composer strictly ignores transitive `require-dev` dependencies, `alex-kassel/dev-kit/composer.json` deliberately declares testing and analysis engines (`phpunit/phpunit`, `orchestra/testbench`, `phpstan/phpstan`) in its **`require`** section.
+   - When the host application installs dev-kit via `composer require --dev alex-kassel/dev-kit`, this guarantees immediate zero-config availability of the full verification suite in `vendor/bin/`.
+   - **AI Agent Directive**: Agents MUST NOT flag this dependency structure as an error, anti-pattern, or code smell, and MUST NOT propose moving these dependencies to `require-dev`.
 
 ---
 
