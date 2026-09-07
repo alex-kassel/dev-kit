@@ -197,4 +197,18 @@ class WorkspaceInstallerTest extends TestCase
         $this->assertContains('AGENTS.md', $forceResult['files']);
         $this->assertStringContainsString('AGENTS.MD — Repository Guidelines', file_get_contents($this->root.'/AGENTS.md'));
     }
+
+    public function test_auto_replaces_laravel_boost_placeholder_without_force(): void
+    {
+        $installer = new WorkspaceInstaller;
+
+        // Simulate a default skeleton with Laravel Boost placeholder
+        file_put_contents($this->root.'/AGENTS.md', "# Boost Guidelines\n<laravel-boost-guidelines>\nRun boost commands\n");
+
+        $result = $installer->install($this->root, false, false);
+
+        $this->assertSame('installed', $result['status']);
+        $this->assertContains('AGENTS.md', $result['files']);
+        $this->assertStringContainsString('AGENTS.MD — Repository Guidelines', file_get_contents($this->root.'/AGENTS.md'));
+    }
 }

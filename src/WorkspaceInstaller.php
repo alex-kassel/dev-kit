@@ -201,8 +201,15 @@ class WorkspaceInstaller
             $targetPath = $root.'/AGENTS.md';
             if (! file_exists($targetPath)) {
                 $writes['AGENTS.md'] = $content;
-            } elseif ($force && $this->read($targetPath) !== $content) {
-                $writes['AGENTS.md'] = $content;
+            } else {
+                $existing = $this->read($targetPath);
+                $isDefaultSkeletonPlaceholder = str_contains($existing, '<laravel-boost-guidelines>')
+                    || str_contains($existing, 'laravel/boost')
+                    || str_contains($existing, '# Laravel Boost');
+
+                if (($force || $isDefaultSkeletonPlaceholder) && $existing !== $content) {
+                    $writes['AGENTS.md'] = $content;
+                }
             }
         }
 

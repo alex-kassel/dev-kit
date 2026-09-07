@@ -131,6 +131,41 @@ class PackageSynchronizerTest extends TestCase
         $this->assertSame($before, file_get_contents($this->root.'/composer.json'));
     }
 
+    public function test_sync_unwinds_existing_semver_constraints_in_require_and_require_dev(): void
+    {
+        // Simulate root composer with existing ^0.0.2 in require-dev and fixed constraint in require
+        file_put_contents($this->root.'/composer.json', json_encode([
+            'name' => 'test/host',
+            'require' => [
+                'php' => '^8.3',
+                'alex-kassel/pkg-a' => '^1.0.0',
+            ],
+            'require-dev' => [
+                'alex-kassel/dev-kit' => '^0.0.2',
+                'phpunit/phpunit' => '^11.0',
+            ],
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+        $this->createPackage('alex-kassel', 'pkg-a');
+        $this->createPackage('alex-kassel', 'dev-kit');
+
+        $synchronizer = new PackageSynchronizer;
+        $result = $synchronizer->sync($this->root);
+
+        $this->assertSame(2, $result['registered_count']);
+
+        $composerData = json_decode((string) file_get_contents($this->root.'/composer.json'), true);
+        $this->assertIsArray($composerData);
+
+        // Should be converted to @dev in require
+        $this->assertSame('@dev', $composerData['require']['alex-kassel/pkg-a']);
+        $this->assertSame('@dev', $composerData['require']['alex-kassel/dev-kit']);
+
+        // Must be removed from require-dev to avoid conflict
+        $this->assertArrayNotHasKey('alex-kassel/dev-kit', $composerData['require-dev']);
+        $this->assertSame('^11.0', $composerData['require-dev']['phpunit/phpunit']);
+    }
+
     public function test_sync_throws_if_root_not_found(): void
     {
         $this->expectException(RuntimeException::class);

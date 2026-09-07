@@ -149,8 +149,11 @@ php artisan vendor:publish --tag=dev-kit-config
 
 Options in `config/dev-kit.php`:
 * `organizations`: List of trusted vendor organizations for recursive localization.
-* `default_source_pattern`: Default Git URL template (e.g. `git@github.com:{vendor}/{package}.git`).
+* `default_source_pattern`: Default Git URL template (defaults to `git@github.com:{vendor}/{package}.git` with automatic HTTPS fallback).
 * `sources`: Explicit repository URL overrides for specific packages.
+
+> [!TIP]
+> **Zero-Friction Ingestion**: `pkg:clone` automatically falls back to HTTPS if SSH authentication (missing key or host verification) fails. When localizing packages previously installed with fixed SemVer constraints (e.g. `^0.0.2`), `pkg:sync` automatically unbinds the constraint to `@dev` across `require` and `require-dev` to prevent Composer solver conflicts.
 
 ---
 

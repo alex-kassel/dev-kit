@@ -55,6 +55,11 @@ class PackageSynchronizer
             ? $composerData['require']
             : [];
 
+        /** @var array<string, string> $currentRequireDev */
+        $currentRequireDev = isset($composerData['require-dev']) && is_array($composerData['require-dev'])
+            ? $composerData['require-dev']
+            : [];
+
         $existingDevPackages = [];
         $systemRequire = [];
 
@@ -77,6 +82,13 @@ class PackageSynchronizer
                     }
                 }
                 $packagesToRegister[$name] = '@dev';
+
+                // If package was previously declared in systemRequire or require-dev with a SemVer constraint (e.g. ^0.0.2),
+                // remove the rigid constraint so the local path repository (@dev) takes precedence without conflict.
+                unset($systemRequire[$name]);
+                if (isset($currentRequireDev[$name])) {
+                    unset($currentRequireDev[$name]);
+                }
             }
         }
 
@@ -94,6 +106,9 @@ class PackageSynchronizer
         }
 
         $composerData['require'] = $newRequire;
+        if (isset($composerData['require-dev']) && is_array($composerData['require-dev'])) {
+            $composerData['require-dev'] = $currentRequireDev;
+        }
 
         // Ensure path repository exists
         $hasPathRepo = false;

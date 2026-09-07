@@ -39,7 +39,29 @@ class PackageCloner
         $staging = $stagingParent.'/'.bin2hex(random_bytes(8));
 
         try {
-            $this->git(['clone', '--single-branch', '--branch', $branch, '--no-recurse-submodules', '--', $source, $staging], $root);
+            $cloneUrl = $source;
+            try {
+                $this->git(['clone', '--single-branch', '--branch', $branch, '--no-recurse-submodules', '--', $cloneUrl, $staging], $root);
+            } catch (RuntimeException $gitException) {
+                // If SSH clone failed due to missing key / host verification, fallback to HTTPS if applicable
+                $isSsh = str_starts_with($source, 'git@') || str_starts_with($source, 'ssh://');
+                if ($isSsh && preg_match('~^(?:git@|ssh://git@)([^:/]+)[:/]([^/]+)/([^/.]+)(?:\.git)?$~', $source, $matches)) {
+                    $host = $matches[1];
+                    $vendor = $matches[2];
+                    $repo = $matches[3];
+                    $httpsFallback = "https://{$host}/{$vendor}/{$repo}.git";
+
+                    if (is_dir($staging)) {
+                        $this->deleteDirectory($staging);
+                    }
+
+                    $cloneUrl = $httpsFallback;
+                    $this->git(['clone', '--single-branch', '--branch', $branch, '--no-recurse-submodules', '--', $cloneUrl, $staging], $root);
+                } else {
+                    throw $gitException;
+                }
+            }
+
             $manifest = $this->manifest($staging.'/composer.json', $package);
             $commit = trim($this->git(['rev-parse', 'HEAD'], $staging));
             $actualBranch = trim($this->git(['branch', '--show-current'], $staging));
@@ -160,5 +182,27 @@ class PackageCloner
         if (! str_starts_with($normalizedPath, $normalizedRoot.'/') && $normalizedPath !== $normalizedRoot) {
             throw new RuntimeException('Path traversal detected: '.$path);
         }
+    }
+
+    private function deleteDirectory(string $dir): void
+    {
+        if (! is_dir($dir)) {
+            return;
+        }
+
+        $items = scandir($dir) ?: [];
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+            $path = $dir.DIRECTORY_SEPARATOR.$item;
+            if (is_dir($path)) {
+                $this->deleteDirectory($path);
+            } else {
+                @unlink($path);
+            }
+        }
+
+        @rmdir($dir);
     }
 }

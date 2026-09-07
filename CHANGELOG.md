@@ -5,6 +5,13 @@ All notable changes to `alex-kassel/dev-kit` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.3] - 2026-09-07
+
+### Added
+- Smart protocol fallback (SSH -> HTTPS) in `PackageCloner` when SSH authentication or host key verification fails.
+- Automatic overwriting of default skeleton placeholders (`<laravel-boost-guidelines>`) in `WorkspaceInstaller` without requiring `--force`.
+- Seamless constraint reconciliation in `PackageSynchronizer`: removes localized packages from `require-dev` and converts existing SemVer tags to `@dev` to prevent solver conflicts during path repository linking.
+
 ## [0.0.2] - 2026-09-07
 
 ### Added
