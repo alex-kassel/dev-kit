@@ -11,6 +11,7 @@ use AlexKassel\DevKit\Console\ListPackagesCommand;
 use AlexKassel\DevKit\Console\MakePackageCommand;
 use AlexKassel\DevKit\Console\ReadmePackageCommand;
 use AlexKassel\DevKit\Console\ReleaseCheckPackageCommand;
+use AlexKassel\DevKit\Console\RemovePackageCommand;
 use AlexKassel\DevKit\Console\SyncPackagesCommand;
 use AlexKassel\DevKit\DevKitServiceProvider;
 use Illuminate\Console\Command;
@@ -23,7 +24,7 @@ class DevKitServiceProviderTest extends TestCase
         $this->assertTrue(class_exists(DevKitServiceProvider::class));
     }
 
-    public function test_all_eight_commands_are_valid_console_commands(): void
+    public function test_all_nine_commands_are_valid_console_commands(): void
     {
         $commands = [
             InstallCommand::class,
@@ -32,6 +33,7 @@ class DevKitServiceProviderTest extends TestCase
             CheckPackageCommand::class,
             MakePackageCommand::class,
             SyncPackagesCommand::class,
+            RemovePackageCommand::class,
             ReadmePackageCommand::class,
             ReleaseCheckPackageCommand::class,
         ];
