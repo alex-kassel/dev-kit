@@ -29,6 +29,28 @@ class PackageSynchronizer
             throw new RuntimeException('Host directory does not exist.');
         }
 
+        $lockPath = $root.DIRECTORY_SEPARATOR.'.composer-manifest.lock';
+
+        return FileLock::run($lockPath, function () use ($root, $clean, $filter, $dryRun): array {
+            return $this->doSync($root, $clean, $filter, $dryRun);
+        });
+    }
+
+    /**
+     * @return array{
+     *     status: string,
+     *     dry_run: bool,
+     *     clean_mode: bool,
+     *     filter: ?string,
+     *     total_discovered_on_disk: int,
+     *     registered_count: int,
+     *     added: list<string>,
+     *     removed: list<string>,
+     *     retained: list<string>
+     * }
+     */
+    private function doSync(string $root, bool $clean, ?string $filter, bool $dryRun): array
+    {
         $rootComposerPath = $root.DIRECTORY_SEPARATOR.'composer.json';
         if (! file_exists($rootComposerPath)) {
             throw new RuntimeException('Root composer.json not found.');

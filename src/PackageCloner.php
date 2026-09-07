@@ -15,17 +15,17 @@ class PackageCloner
     public function __construct(private SourceLocator $sources) {}
 
     /** @return array{schema_version: int, status: string, name: string, path: string, branch: string, commit: string, composer_updated: bool, require: stdClass, require_dev: stdClass} */
-    public function clonePackage(string $root, string $package, string $branch, mixed $sources, ?string $defaultPattern = null): array
+    public function clonePackage(string $root, string $package, ?string $branch = null, mixed $sources = [], ?string $defaultPattern = null): array
     {
         $source = $this->sources->resolve($package, $sources, $defaultPattern);
-        if ($branch === '') {
-            throw new RuntimeException('An explicit --branch is required.');
-        }
+        $hasExplicitBranch = ($branch !== null && trim($branch) !== '');
         $root = realpath($root);
         if ($root === false) {
             throw new RuntimeException('Host directory does not exist.');
         }
-        $this->git(['check-ref-format', '--branch', $branch], $root);
+        if ($hasExplicitBranch) {
+            $this->git(['check-ref-format', '--branch', $branch], $root);
+        }
         $destination = $root.'/packages/'.$package;
         if (file_exists($destination) || is_link($destination)) {
             throw new RuntimeException('Local package path already exists; it was not changed: packages/'.$package);
@@ -38,10 +38,24 @@ class PackageCloner
         }
         $staging = $stagingParent.'/'.bin2hex(random_bytes(8));
 
+        $buildCloneArgs = function (string $url) use ($hasExplicitBranch, $branch, $staging): array {
+            $args = ['-c', 'core.autocrlf=input', 'clone', '--single-branch'];
+            if ($hasExplicitBranch && $branch !== null) {
+                $args[] = '--branch';
+                $args[] = $branch;
+            }
+            $args[] = '--no-recurse-submodules';
+            $args[] = '--';
+            $args[] = $url;
+            $args[] = $staging;
+
+            return $args;
+        };
+
         try {
             $cloneUrl = $source;
             try {
-                $this->git(['-c', 'core.autocrlf=input', 'clone', '--single-branch', '--branch', $branch, '--no-recurse-submodules', '--', $cloneUrl, $staging], $root);
+                $this->git($buildCloneArgs($cloneUrl), $root);
             } catch (RuntimeException $gitException) {
                 // If SSH clone failed due to missing key / host verification, fallback to HTTPS if applicable
                 $isSsh = str_starts_with($source, 'git@') || str_starts_with($source, 'ssh://');
@@ -56,7 +70,7 @@ class PackageCloner
                     }
 
                     $cloneUrl = $httpsFallback;
-                    $this->git(['-c', 'core.autocrlf=input', 'clone', '--single-branch', '--branch', $branch, '--no-recurse-submodules', '--', $cloneUrl, $staging], $root);
+                    $this->git($buildCloneArgs($cloneUrl), $root);
                 } else {
                     throw $gitException;
                 }
@@ -65,7 +79,10 @@ class PackageCloner
             $manifest = $this->manifest($staging.'/composer.json', $package);
             $commit = trim($this->git(['rev-parse', 'HEAD'], $staging));
             $actualBranch = trim($this->git(['branch', '--show-current'], $staging));
-            if ($actualBranch !== $branch) {
+            if ($actualBranch === '') {
+                $actualBranch = trim($this->git(['describe', '--tags', '--always'], $staging));
+            }
+            if ($hasExplicitBranch && $actualBranch !== $branch) {
                 throw new RuntimeException('Requested ref did not produce branch '.$branch.'; tags and detached checkouts are not supported by --branch.');
             }
             if (! is_dir(dirname($destination)) && ! @mkdir(dirname($destination), 0777, true) && ! is_dir(dirname($destination))) {

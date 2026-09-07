@@ -120,11 +120,10 @@ class PackageClonerTest extends TestCase
         (new SourceLocator)->resolve('../outside', ['../outside' => $this->source]);
     }
 
-    public function test_branch_is_required_before_cloning(): void
+    public function test_default_branch_is_autodetected_when_branch_omitted(): void
     {
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('explicit --branch is required');
-        $this->clone('');
+        $result = (new PackageCloner(new SourceLocator))->clonePackage($this->host, 'mine/example', null, ['mine/example' => $this->source]);
+        $this->assertSame('main', $result['branch']);
     }
 
     public function test_existing_file_is_not_treated_as_a_checkout(): void

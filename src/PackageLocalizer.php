@@ -13,11 +13,9 @@ class PackageLocalizer
     /**
      * @return array{schema_version: int, status: string, composer_updated: bool, packages: list<array<string, mixed>>, requirements: list<array<string, mixed>>}
      */
-    public function localize(string $root, string $package, string $branch, mixed $sources, mixed $organizations, ?string $defaultPattern = null): array
+    public function localize(string $root, string $package, ?string $branch = null, mixed $sources = [], mixed $organizations = [], ?string $defaultPattern = null): array
     {
-        if ($branch === '') {
-            throw new RuntimeException('An explicit root --branch is required.');
-        }
+        $normalizedBranch = ($branch !== null && trim($branch) !== '') ? trim($branch) : null;
         if (! is_array($organizations) || ! array_is_list($organizations)) {
             throw new RuntimeException('dev-kit.organizations must be a list.');
         }
@@ -28,9 +26,9 @@ class PackageLocalizer
         }
         $visited = [];
         $edges = [];
-        $visit = function (string $name, string $requiredBranch, string $from) use (&$visit, &$visited, &$edges, $root, $sources, $organizations, $defaultPattern): void {
+        $visit = function (string $name, ?string $requiredBranch, string $from) use (&$visit, &$visited, &$edges, $root, $sources, $organizations, $defaultPattern): void {
             if (isset($visited[$name])) {
-                if ($visited[$name]['branch'] !== $requiredBranch) {
+                if ($requiredBranch !== null && $requiredBranch !== '' && $visited[$name]['branch'] !== $requiredBranch) {
                     throw new RuntimeException($from.' requires '.$name.' dev-'.$requiredBranch.' but local branch is '.$visited[$name]['branch'].'. Checkout was not switched.');
                 }
 
@@ -45,7 +43,7 @@ class PackageLocalizer
                 $checkout = $this->cloner->clonePackage($root, $name, $requiredBranch, $sources, $defaultPattern);
                 $action = 'cloned';
             }
-            if ($checkout['branch'] !== $requiredBranch) {
+            if ($requiredBranch !== null && $requiredBranch !== '' && $checkout['branch'] !== $requiredBranch) {
                 throw new RuntimeException($from.' requires '.$name.' dev-'.$requiredBranch.' but local branch is '.$checkout['branch'].'. Checkout was not switched.');
             }
             $visited[$name] = [
@@ -76,14 +74,15 @@ class PackageLocalizer
                     }
                 }
                 $branches = array_values(array_unique($branches));
-                if (count($branches) !== 1) {
-                    throw new RuntimeException('Explicit ref selection is required for '.$dependency.' '.$constraint.' required by '.$name.'. Expected one unambiguous dev-* alternative.');
+                if (count($branches) > 1) {
+                    throw new RuntimeException('Ambiguous ref selection for '.$dependency.' '.$constraint.' required by '.$name.'. Expected at most one dev-* alternative.');
                 }
-                $visit($dependency, $branches[0], $name);
+                $targetBranch = count($branches) === 1 ? $branches[0] : null;
+                $visit($dependency, $targetBranch, $name);
             }
         };
         try {
-            $visit($package, $branch, 'workspace');
+            $visit($package, $normalizedBranch, 'workspace');
         } catch (RuntimeException $exception) {
             throw new RuntimeException($exception->getMessage().' Previously localized checkouts are retained; no remote fallback was attempted.', 0, $exception);
         }

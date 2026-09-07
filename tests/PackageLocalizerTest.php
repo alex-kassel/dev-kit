@@ -63,22 +63,21 @@ class PackageLocalizerTest extends TestCase
 
     public function test_numeric_constraint_does_not_invent_a_branch(): void
     {
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Explicit ref selection is required');
-        $this->runGraph(['mine/a' => ['mine/b' => '^1.0'], 'mine/b' => []]);
+        $result = $this->runGraph(['mine/a' => ['mine/b' => '^1.0'], 'mine/b' => []]);
+        $this->assertSame(['mine/a', 'mine/b'], $this->calls);
     }
 
     public function test_multiple_dev_alternatives_need_explicit_selection(): void
     {
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('one unambiguous dev-* alternative');
+        $this->expectExceptionMessage('Ambiguous ref selection');
         $this->runGraph(['mine/a' => ['mine/b' => 'dev-main || dev-other'], 'mine/b' => []]);
     }
 
     private function runGraph(array $graph): array
     {
         $cloner = $this->createMock(PackageCloner::class);
-        $cloner->method('clonePackage')->willReturnCallback(function (string $root, string $name, string $branch) use ($graph): array {
+        $cloner->method('clonePackage')->willReturnCallback(function (string $root, string $name, ?string $branch = null) use ($graph): array {
             $this->calls[] = $name;
 
             return [

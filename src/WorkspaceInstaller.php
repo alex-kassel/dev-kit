@@ -18,6 +18,18 @@ class WorkspaceInstaller
             throw new RuntimeException('Host directory does not exist: '.$root);
         }
 
+        $lockPath = $root.DIRECTORY_SEPARATOR.'.composer-manifest.lock';
+
+        return FileLock::run($lockPath, function () use ($root, $force, $dryRun): array {
+            return $this->doInstall($root, $force, $dryRun);
+        });
+    }
+
+    /**
+     * @return array{schema_version: int, status: string, dry_run: bool, files: list<string>}
+     */
+    private function doInstall(string $root, bool $force, bool $dryRun): array
+    {
         foreach (['composer.json', '.gitignore', 'packages'] as $path) {
             if (is_link($root.'/'.$path)) {
                 throw new RuntimeException('Refusing to modify a linked workspace path: '.$path);
@@ -165,7 +177,9 @@ class WorkspaceInstaller
             'pkg:make' => '@php artisan pkg:make',
             'pkg:readme' => '@php artisan pkg:readme',
             'pkg:release-check' => '@php artisan pkg:release-check',
+            'pkg:remove' => '@php artisan pkg:remove',
             'pkg:sync' => '@php artisan pkg:sync',
+            'test:tooling' => '@php vendor/bin/phpunit -c packages/alex-kassel/dev-kit/phpunit.xml',
         ];
 
         if ($manifest->scripts instanceof stdClass) {

@@ -17,11 +17,12 @@ class ClonePackageCommand extends Command
 {
     protected $signature = 'pkg:clone
         {package : Composer package name}
-        {--branch= : Explicit branch to clone}
-        {--recursive : Localize owned require dependencies with one explicit dev-* alternative}
+        {--branch= : Explicit branch to clone (defaults to remote default branch)}
+        {--recursive : Localize owned require dependencies}
         {--org= : Additional comma-separated trusted organization vendors}
         {--no-sync : Do not automatically register cloned package in root composer.json}
         {--update : Run composer update for the cloned package to establish symlink}
+        {--no-update : Do not run composer update}
         {--json : Emit a machine-readable result}';
 
     protected $description = 'Clone a package, optionally localizing owned dependencies, and synchronizing workspace';
@@ -38,7 +39,7 @@ class ClonePackageCommand extends Command
         $packageArg = $this->argument('package');
         $rawPackageName = is_string($packageArg) ? $packageArg : '';
         $branchOpt = $this->option('branch');
-        $branch = is_string($branchOpt) ? $branchOpt : '';
+        $branch = (is_string($branchOpt) && trim($branchOpt) !== '') ? trim($branchOpt) : null;
         $sources = $config->get('dev-kit.sources', []);
         $configuredOrgs = $config->get('dev-kit.organizations', []);
         /** @var string|null $cliOrg */
@@ -63,6 +64,7 @@ class ClonePackageCommand extends Command
         $isJson = (bool) $this->option('json');
         $noSync = (bool) $this->option('no-sync');
         $shouldUpdate = (bool) $this->option('update');
+        $noUpdate = (bool) $this->option('no-update');
 
         if ($this->option('recursive')) {
             try {
@@ -82,6 +84,25 @@ class ClonePackageCommand extends Command
                 $synchronizer->sync($root);
             }
 
+            $updated = false;
+            if (! $noUpdate && ($shouldUpdate || ! $isJson)) {
+                if (! $isJson) {
+                    $this->info('Running composer update to link localized packages...');
+                }
+                $process = new Process(['composer', 'update', '--prefer-dist', '--no-interaction'], $root);
+                $process->setTimeout(600.0);
+                if (! $isJson) {
+                    $process->run(function (string $type, string $buffer): void {
+                        $this->output->write($buffer);
+                    });
+                } else {
+                    $process->run();
+                }
+                $updated = ($process->getExitCode() === 0);
+            }
+
+            $result['composer_updated'] = $updated;
+
             if ($isJson) {
                 $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
             } else {
@@ -89,6 +110,9 @@ class ClonePackageCommand extends Command
                     $this->line($package['action'].': '.$package['name'].' ('.$package['branch'].')');
                 }
                 $this->line($noSync ? 'Localization complete.' : 'Localization complete. Workspace composer.json synchronized.');
+                if ($updated) {
+                    $this->info('Composer workspace updated and dependencies linked locally.');
+                }
             }
 
             return self::SUCCESS;
@@ -113,10 +137,19 @@ class ClonePackageCommand extends Command
         }
 
         $updated = false;
-        if ($shouldUpdate) {
-            $process = new Process(['composer', 'update', $packageName, '--no-interaction'], $root);
+        if ($shouldUpdate && ! $noUpdate) {
+            if (! $isJson) {
+                $this->info('Running composer update for '.$packageName.'...');
+            }
+            $process = new Process(['composer', 'update', $packageName, '--prefer-dist', '--no-interaction'], $root);
             $process->setTimeout(300.0);
-            $process->run();
+            if (! $isJson) {
+                $process->run(function (string $type, string $buffer): void {
+                    $this->output->write($buffer);
+                });
+            } else {
+                $process->run();
+            }
             $updated = ($process->getExitCode() === 0);
         }
 
