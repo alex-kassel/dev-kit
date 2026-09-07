@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace AlexKassel\DevKit;
 
+use Illuminate\Support\Facades\File;
 use RuntimeException;
 use Symfony\Component\Filesystem\Exception\IOExceptionInterface;
 use Symfony\Component\Filesystem\Filesystem;
@@ -50,22 +51,23 @@ class FileIO
 
     public static function read(string $path): string
     {
-        if (! file_exists($path) || ! is_readable($path)) {
+        if (! File::exists($path) || ! is_readable($path)) {
             throw new RuntimeException("Cannot read file: {$path}");
         }
 
-        $contents = @file_get_contents($path);
-        if ($contents === false) {
-            throw new RuntimeException("Failed to read file: {$path}");
+        try {
+            return File::get($path);
+        } catch (\Throwable $e) {
+            throw new RuntimeException("Failed to read file: {$path}", 0, $e);
         }
-
-        return $contents;
     }
 
     public static function write(string $path, string $contents, ?string $originalForLineEndings = null): void
     {
         $dir = dirname($path);
-        if (! is_dir($dir) && ! @mkdir($dir, 0777, true) && ! is_dir($dir)) {
+        try {
+            File::ensureDirectoryExists($dir);
+        } catch (\Throwable) {
             throw new RuntimeException("Cannot create directory: {$dir}");
         }
 

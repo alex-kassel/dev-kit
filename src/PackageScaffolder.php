@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace AlexKassel\DevKit;
 
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use JsonException;
 use RuntimeException;
@@ -44,7 +45,7 @@ class PackageScaffolder
         $packageDir = $root.DIRECTORY_SEPARATOR.'packages'.DIRECTORY_SEPARATOR.$vendor.DIRECTORY_SEPARATOR.$packageName;
         $relPackageDir = "packages/{$vendor}/{$packageName}";
 
-        if (is_dir($packageDir) && count(scandir($packageDir) ?: []) > 2) {
+        if (File::isDirectory($packageDir) && count(File::directories($packageDir) ?: []) + count(File::files($packageDir) ?: []) > 0) {
             throw new RuntimeException("Package directory '{$relPackageDir}' already exists and is not empty.");
         }
 
@@ -57,7 +58,9 @@ class PackageScaffolder
         $createdFiles = [];
 
         if (! $dryRun) {
-            if (! is_dir($packageDir) && ! @mkdir($packageDir, 0777, true) && ! is_dir($packageDir)) {
+            try {
+                File::ensureDirectoryExists($packageDir);
+            } catch (\Throwable) {
                 throw new RuntimeException("Cannot create package directory: {$packageDir}");
             }
 
@@ -448,15 +451,16 @@ README;
     private function registerInRootComposer(string $root, string $package): string
     {
         $composerPath = $root.DIRECTORY_SEPARATOR.'composer.json';
-        if (! file_exists($composerPath)) {
+        if (! File::exists($composerPath)) {
             return 'missing_root_composer';
         }
 
         $lockPath = $root.DIRECTORY_SEPARATOR.'.composer-manifest.lock';
 
         return FileLock::run($lockPath, function () use ($composerPath, $package): string {
-            $content = @file_get_contents($composerPath);
-            if ($content === false) {
+            try {
+                $content = File::get($composerPath);
+            } catch (\Throwable) {
                 return 'unreadable_root_composer';
             }
 

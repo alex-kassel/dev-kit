@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace AlexKassel\DevKit;
 
+use Illuminate\Support\Facades\File;
 use JsonException;
 use RuntimeException;
 use stdClass;
@@ -57,7 +58,7 @@ class WorkspaceInstaller
         }
 
         $ignorePath = $root.'/.gitignore';
-        $ignore = file_exists($ignorePath) ? $this->read($ignorePath) : '';
+        $ignore = File::exists($ignorePath) ? $this->read($ignorePath) : '';
         $rawRules = preg_split('/\r?\n/', $ignore) ?: [];
         $rules = array_values(array_filter($rawRules, fn (string $line): bool => trim($line) !== '' && ! str_starts_with($line, '#')));
         if (! in_array($rules === [] ? '' : end($rules), ['/packages/*/*', '/packages/*/*/'], true)) {
@@ -68,12 +69,12 @@ class WorkspaceInstaller
         $this->collectAgentWrites($root, $writes, $force);
 
         $packages = $root.'/packages';
-        if (file_exists($packages) && ! is_dir($packages)) {
+        if (File::exists($packages) && ! File::isDirectory($packages)) {
             throw new RuntimeException('packages exists but is not a directory.');
         }
-        $createDirectory = ! is_dir($packages);
+        $createDirectory = ! File::isDirectory($packages);
         foreach (array_keys($writes) as $path) {
-            if ((file_exists($root.'/'.$path) && ! is_writable($root.'/'.$path)) || ! is_writable($root)) {
+            if ((File::exists($root.'/'.$path) && ! is_writable($root.'/'.$path)) || ! is_writable($root)) {
                 throw new RuntimeException('Workspace file is not writable: '.$path);
             }
         }
@@ -88,13 +89,17 @@ class WorkspaceInstaller
         if (! $dryRun) {
             foreach ($writes as $path => $contents) {
                 $dir = dirname($root.'/'.$path);
-                if (! is_dir($dir) && ! @mkdir($dir, 0777, true) && ! is_dir($dir)) {
+                try {
+                    File::ensureDirectoryExists($dir);
+                } catch (\Throwable) {
                     throw new RuntimeException('Could not create directory: '.$dir);
                 }
                 $this->write($root.'/'.$path, $contents);
             }
-            if ($createDirectory && ! @mkdir($packages, 0777, false)) {
-                if (! is_dir($packages)) {
+            if ($createDirectory) {
+                try {
+                    File::ensureDirectoryExists($packages);
+                } catch (\Throwable) {
                     throw new RuntimeException('Could not create packages/. Earlier file changes may have been applied; rerun after fixing permissions.');
                 }
             }
@@ -205,15 +210,15 @@ class WorkspaceInstaller
     private function collectAgentWrites(string $root, array &$writes, bool $force): void
     {
         $resourcesDir = __DIR__.'/../resources/agents';
-        if (! is_dir($resourcesDir)) {
+        if (! File::isDirectory($resourcesDir)) {
             return;
         }
 
         $agentsFile = $resourcesDir.'/AGENTS.md';
-        if (file_exists($agentsFile)) {
+        if (File::exists($agentsFile)) {
             $content = $this->read($agentsFile);
             $targetPath = $root.'/AGENTS.md';
-            if (! file_exists($targetPath)) {
+            if (! File::exists($targetPath)) {
                 $writes['AGENTS.md'] = $content;
             } else {
                 $existing = $this->read($targetPath);
@@ -228,7 +233,7 @@ class WorkspaceInstaller
         }
 
         $skillsDir = $resourcesDir.'/skills';
-        if (is_dir($skillsDir)) {
+        if (File::isDirectory($skillsDir)) {
             $this->scanAgentDirectory($skillsDir, $skillsDir, $root, $writes, $force);
         }
     }
@@ -238,30 +243,18 @@ class WorkspaceInstaller
      */
     private function scanAgentDirectory(string $baseDir, string $currentDir, string $root, array &$writes, bool $force): void
     {
-        $items = scandir($currentDir);
-        if ($items === false) {
-            return;
-        }
+        $files = File::allFiles($baseDir);
+        foreach ($files as $file) {
+            $sourcePath = $file->getPathname();
+            $relativePath = $file->getRelativePathname();
+            $relTarget = '.agents/skills/'.str_replace('\\', '/', $relativePath);
+            $targetPath = $root.'/'.$relTarget;
+            $content = $this->read($sourcePath);
 
-        foreach ($items as $item) {
-            if ($item === '.' || $item === '..') {
-                continue;
-            }
-
-            $sourcePath = $currentDir.'/'.$item;
-            if (is_dir($sourcePath)) {
-                $this->scanAgentDirectory($baseDir, $sourcePath, $root, $writes, $force);
-            } elseif (is_file($sourcePath)) {
-                $relativePath = substr($sourcePath, strlen($baseDir) + 1);
-                $relTarget = '.agents/skills/'.str_replace('\\', '/', $relativePath);
-                $targetPath = $root.'/'.$relTarget;
-                $content = $this->read($sourcePath);
-
-                if (! file_exists($targetPath)) {
-                    $writes[$relTarget] = $content;
-                } elseif ($force && $this->read($targetPath) !== $content) {
-                    $writes[$relTarget] = $content;
-                }
+            if (! File::exists($targetPath)) {
+                $writes[$relTarget] = $content;
+            } elseif ($force && $this->read($targetPath) !== $content) {
+                $writes[$relTarget] = $content;
             }
         }
     }

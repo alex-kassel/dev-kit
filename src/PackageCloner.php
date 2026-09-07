@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AlexKassel\DevKit;
 
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use JsonException;
 use RuntimeException;
@@ -27,13 +28,15 @@ class PackageCloner
             $this->git(['check-ref-format', '--branch', $branch], $root);
         }
         $destination = $root.'/packages/'.$package;
-        if (file_exists($destination) || is_link($destination)) {
+        if (File::exists($destination) || is_link($destination)) {
             throw new RuntimeException('Local package path already exists; it was not changed: packages/'.$package);
         }
         $this->assertContained($root, dirname($destination));
         $stagingParent = $root.'/storage/app/private/dev-kit/clones';
         $this->assertContained($root, $stagingParent);
-        if (! is_dir($stagingParent) && ! @mkdir($stagingParent, 0777, true) && ! is_dir($stagingParent)) {
+        try {
+            File::ensureDirectoryExists($stagingParent);
+        } catch (\Throwable) {
             throw new RuntimeException('Cannot create clone staging directory.');
         }
         $staging = $stagingParent.'/'.bin2hex(random_bytes(8));
@@ -85,9 +88,12 @@ class PackageCloner
             if ($hasExplicitBranch && $actualBranch !== $branch) {
                 throw new RuntimeException('Requested ref did not produce branch '.$branch.'; tags and detached checkouts are not supported by --branch.');
             }
-            if (! is_dir(dirname($destination)) && ! @mkdir(dirname($destination), 0777, true) && ! is_dir(dirname($destination))) {
+            try {
+                File::ensureDirectoryExists(dirname($destination));
+            } catch (\Throwable) {
                 throw new RuntimeException('Cannot create package vendor directory.');
             }
+            clearstatcache(true, $destination);
             if (file_exists($destination)) {
                 throw new RuntimeException('Destination appeared while cloning; it was not changed.');
             }
@@ -95,7 +101,7 @@ class PackageCloner
                 throw new RuntimeException('Cannot move validated checkout into packages/.');
             }
         } catch (RuntimeException $exception) {
-            $retained = is_dir($staging) ? ' New checkout retained for inspection at '.$staging : '';
+            $retained = File::isDirectory($staging) ? ' New checkout retained for inspection at '.$staging : '';
             throw new RuntimeException($exception->getMessage().$retained, 0, $exception);
         }
 
@@ -147,11 +153,12 @@ class PackageCloner
 
     private function manifest(string $path, string $expectedPackage): stdClass
     {
-        if (! is_file($path) || ! is_readable($path)) {
+        if (! File::isFile($path) || ! is_readable($path)) {
             throw new RuntimeException('Cloned repository does not contain a readable composer.json.');
         }
-        $contents = @file_get_contents($path);
-        if ($contents === false) {
+        try {
+            $contents = File::get($path);
+        } catch (\Throwable) {
             throw new RuntimeException('Cannot read cloned composer.json.');
         }
         try {

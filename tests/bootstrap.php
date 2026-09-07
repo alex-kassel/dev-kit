@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 use Illuminate\Container\Container;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Process\Factory;
 use Illuminate\Support\Facades\Facade;
 
@@ -27,6 +28,7 @@ $autoloader->addPsr4('AlexKassel\\DevKit\\Tests\\', __DIR__);
 if (Facade::getFacadeApplication() === null) {
     $app = new Container;
     $app->singleton('process', fn () => new Factory);
+    $app->singleton('files', fn () => new Filesystem);
     Facade::setFacadeApplication($app);
 }
 

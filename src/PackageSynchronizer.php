@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace AlexKassel\DevKit;
 
-use JsonException;
+use Illuminate\Support\Facades\File;
 use RuntimeException;
 
 class PackageSynchronizer
@@ -53,11 +53,10 @@ class PackageSynchronizer
     {
         $rootComposerPath = $root.DIRECTORY_SEPARATOR.'composer.json';
         $composerContents = FileIO::read($rootComposerPath);
-
         try {
             /** @var array<string, mixed>|null $composerData */
             $composerData = json_decode($composerContents, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException $e) {
+        } catch (\Throwable $e) {
             throw new RuntimeException('Failed to parse root composer.json: '.$e->getMessage(), 0, $e);
         }
 
@@ -175,41 +174,29 @@ class PackageSynchronizer
         $discovered = [];
         $packagesDir = $root.DIRECTORY_SEPARATOR.'packages';
 
-        if (! is_dir($packagesDir)) {
+        if (! File::isDirectory($packagesDir)) {
             return [];
         }
 
-        $vendorDirs = scandir($packagesDir) ?: [];
-        foreach ($vendorDirs as $vDir) {
-            if ($vDir === '.' || $vDir === '..') {
-                continue;
-            }
-            $fullVendorDir = $packagesDir.DIRECTORY_SEPARATOR.$vDir;
-            if (! is_dir($fullVendorDir)) {
-                continue;
-            }
+        $vendorDirs = File::directories($packagesDir);
+        foreach ($vendorDirs as $fullVendorDir) {
+            $vDir = basename($fullVendorDir);
+            $pkgDirs = File::directories($fullVendorDir);
 
-            $pkgDirs = scandir($fullVendorDir) ?: [];
-            foreach ($pkgDirs as $pDir) {
-                if ($pDir === '.' || $pDir === '..') {
-                    continue;
-                }
-                $fullPkgDir = $fullVendorDir.DIRECTORY_SEPARATOR.$pDir;
+            foreach ($pkgDirs as $fullPkgDir) {
+                $pDir = basename($fullPkgDir);
                 $pkgComposerFile = $fullPkgDir.DIRECTORY_SEPARATOR.'composer.json';
 
-                if (is_dir($fullPkgDir) && file_exists($pkgComposerFile)) {
-                    $pkgContents = @file_get_contents($pkgComposerFile);
+                if (File::exists($pkgComposerFile)) {
                     $declaredName = "{$vDir}/{$pDir}";
-                    if ($pkgContents !== false) {
-                        try {
-                            /** @var array<string, mixed>|null $pkgData */
-                            $pkgData = json_decode($pkgContents, true, 512, JSON_THROW_ON_ERROR);
-                            if (is_array($pkgData) && isset($pkgData['name']) && is_string($pkgData['name'])) {
-                                $declaredName = $pkgData['name'];
-                            }
-                        } catch (JsonException) {
-                            // fallback to vendor/package
+                    try {
+                        /** @var array<string, mixed>|null $pkgData */
+                        $pkgData = File::json($pkgComposerFile);
+                        if (is_array($pkgData) && isset($pkgData['name']) && is_string($pkgData['name'])) {
+                            $declaredName = $pkgData['name'];
                         }
+                    } catch (\Throwable) {
+                        // fallback to vendor/package
                     }
 
                     $relPath = "packages/{$vDir}/{$pDir}";

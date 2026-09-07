@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace AlexKassel\DevKit;
 
+use Illuminate\Support\Facades\File;
 use RuntimeException;
 
 class ReadmeValidator
@@ -34,12 +35,12 @@ class ReadmeValidator
 
         $readmePath = $packagePath.DIRECTORY_SEPARATOR.'README.md';
         $releaseGatePath = $packagePath.DIRECTORY_SEPARATOR.'RELEASE-GATE.md';
-        $hasReleaseGate = file_exists($releaseGatePath);
+        $hasReleaseGate = File::exists($releaseGatePath);
 
         $checks = [];
 
         // 1. File existence
-        if (! file_exists($readmePath)) {
+        if (! File::exists($readmePath)) {
             $checks['file_exists'] = [
                 'name' => 'README.md File Existence',
                 'status' => 'failed',
@@ -54,7 +55,7 @@ class ReadmeValidator
         }
 
         if ($checks['file_exists']['status'] === 'passed') {
-            $content = (string) file_get_contents($readmePath);
+            $content = File::get($readmePath);
 
             // 2. Hero Title Check (Centered HTML or standard Markdown #)
             $hasCenteredHero = preg_match('/<h1\s+align=["\']center["\']>/i', $content) === 1;

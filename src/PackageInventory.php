@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace AlexKassel\DevKit;
 
-use JsonException;
+use Illuminate\Support\Facades\File;
 use RuntimeException;
 use stdClass;
 
@@ -26,26 +26,26 @@ class PackageInventory
         }
 
         $packageRoot = rtrim($root, '/\\').'/packages';
-        if (! file_exists($packageRoot)) {
+        if (! File::exists($packageRoot)) {
             return [];
         }
-        if (! is_dir($packageRoot) || ! is_readable($packageRoot)) {
+        if (! File::isDirectory($packageRoot) || ! is_readable($packageRoot)) {
             throw new RuntimeException('Cannot read the packages directory.');
         }
 
         $packages = [];
         $seen = [];
-        foreach ($this->directories($packageRoot) as $vendorDirectory) {
-            foreach ($this->directories($vendorDirectory) as $directory) {
+        foreach (File::directories($packageRoot) as $vendorDirectory) {
+            foreach (File::directories($vendorDirectory) as $directory) {
                 $manifestPath = $directory.'/composer.json';
                 $relative = 'packages/'.basename($vendorDirectory).'/'.basename($directory);
-                $contents = is_file($manifestPath) && is_readable($manifestPath) ? @file_get_contents($manifestPath) : false;
-                if ($contents === false) {
+                if (! File::isFile($manifestPath) || ! is_readable($manifestPath)) {
                     throw new RuntimeException('Cannot read '.$relative.'/composer.json');
                 }
                 try {
+                    $contents = File::get($manifestPath);
                     $manifest = json_decode($contents, false, 512, JSON_THROW_ON_ERROR);
-                } catch (JsonException $exception) {
+                } catch (\Throwable $exception) {
                     throw new RuntimeException('Invalid JSON in '.$relative.'/composer.json: '.$exception->getMessage(), 0, $exception);
                 }
                 $name = $manifest instanceof stdClass ? ($manifest->name ?? null) : null;
@@ -70,23 +70,6 @@ class PackageInventory
         usort($packages, fn (array $left, array $right): int => strcmp($left['name'], $right['name']));
 
         return $packages;
-    }
-
-    /** @return list<string> */
-    private function directories(string $root): array
-    {
-        $entries = @scandir($root);
-        if ($entries === false) {
-            throw new RuntimeException('Cannot list directory: '.$root);
-        }
-        $directories = [];
-        foreach ($entries as $entry) {
-            if ($entry !== '.' && $entry !== '..' && is_dir($root.'/'.$entry)) {
-                $directories[] = $root.'/'.$entry;
-            }
-        }
-
-        return $directories;
     }
 
     private function samePath(string $left, string $right): bool

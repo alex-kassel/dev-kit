@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace AlexKassel\DevKit;
 
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use RuntimeException;
 
@@ -83,8 +84,8 @@ class ReleaseChecker
 
         // 2. Audit Certificate Freshness Gate
         $releaseGateFile = $packagePath.DIRECTORY_SEPARATOR.'RELEASE-GATE.md';
-        if (file_exists($releaseGateFile)) {
-            $gateContent = (string) file_get_contents($releaseGateFile);
+        if (File::exists($releaseGateFile)) {
+            $gateContent = File::get($releaseGateFile);
             $certifiedCommit = $this->extractCertifiedCommit($gateContent);
 
             if ($certifiedCommit !== null && is_dir($gitDir)) {
@@ -138,8 +139,8 @@ class ReleaseChecker
 
         // 3. Distribution Export-Ignore in .gitattributes
         $gitattrPath = $packagePath.DIRECTORY_SEPARATOR.'.gitattributes';
-        if (file_exists($gitattrPath)) {
-            $attrContent = (string) file_get_contents($gitattrPath);
+        if (File::exists($gitattrPath)) {
+            $attrContent = File::get($gitattrPath);
             if (str_contains($attrContent, 'export-ignore')) {
                 $checks['export_ignore'] = [
                     'name' => 'Distribution Archive (.gitattributes)',

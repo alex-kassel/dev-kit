@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AlexKassel\DevKit;
 
 use Illuminate\Contracts\Process\ProcessResult;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use RuntimeException;
 
@@ -108,7 +109,7 @@ class PackageVerifier
             throw new RuntimeException('Concurrency must be at least one.');
         }
         $packageRoot = rtrim($root, '/\\').'/packages';
-        if (! is_dir($packageRoot)) {
+        if (! File::isDirectory($packageRoot)) {
             return [
                 'schema_version' => 1,
                 'status' => 'incomplete',
@@ -120,17 +121,13 @@ class PackageVerifier
         }
 
         $packages = [];
-        $vendors = @scandir($packageRoot) ?: [];
-        foreach ($vendors as $vendor) {
-            if ($vendor === '.' || $vendor === '..' || ! is_dir($packageRoot.'/'.$vendor)) {
-                continue;
-            }
-            $dirs = @scandir($packageRoot.'/'.$vendor) ?: [];
-            foreach ($dirs as $dir) {
-                if ($dir === '.' || $dir === '..' || ! is_dir($packageRoot.'/'.$vendor.'/'.$dir)) {
-                    continue;
-                }
-                if (file_exists($packageRoot.'/'.$vendor.'/'.$dir.'/composer.json')) {
+        $vendorDirs = File::directories($packageRoot);
+        foreach ($vendorDirs as $vendorDir) {
+            $vendor = basename($vendorDir);
+            $pkgDirs = File::directories($vendorDir);
+            foreach ($pkgDirs as $pkgDir) {
+                $dir = basename($pkgDir);
+                if (File::exists($pkgDir.'/composer.json')) {
                     $packages[] = $vendor.'/'.$dir;
                 }
             }
@@ -142,7 +139,7 @@ class PackageVerifier
         $passedTotal = 0;
         $failedTotal = 0;
 
-        if ($parallel && file_exists($root.DIRECTORY_SEPARATOR.'artisan') && count($packages) > 1) {
+        if ($parallel && File::exists($root.DIRECTORY_SEPARATOR.'artisan') && count($packages) > 1) {
             $timeout = $isolated || ($only !== null && in_array('isolated', $only, true)) ? 1500 : 600;
 
             $chunks = array_chunk($packages, $concurrency);
@@ -229,7 +226,7 @@ class PackageVerifier
     private function checkComposer(string $root, string $packagePath, string $relPackagePath): array
     {
         $composerJson = $packagePath.DIRECTORY_SEPARATOR.'composer.json';
-        if (! file_exists($composerJson)) {
+        if (! File::exists($composerJson)) {
             return [
                 'name' => 'Composer Validation',
                 'status' => 'not_configured',
@@ -240,9 +237,13 @@ class PackageVerifier
             ];
         }
 
-        $command = ['composer', 'validate', '--strict', str_replace('\\', '/', $relPackagePath.'/composer.json')];
+        $relComposer = str_replace('\\', '/', $relPackagePath.'/composer.json');
 
-        return $this->runCommand($command, $root, 'Composer Validation');
+        return $this->runCommand(
+            ['composer', 'validate', '--strict', $relComposer],
+            $root,
+            'Composer Validation'
+        );
     }
 
     /** @return array{name: string, status: string, exit_code: int, command: string, output: string, duration_ms: int} */
@@ -252,7 +253,7 @@ class PackageVerifier
         if ($pintBin === null) {
             return [
                 'name' => 'Code Style (Pint)',
-                'status' => 'skipped',
+                'status' => 'not_configured',
                 'exit_code' => 0,
                 'command' => 'none',
                 'output' => 'Pint binary not found in vendor/bin.',
@@ -260,7 +261,8 @@ class PackageVerifier
             ];
         }
 
-        $command = [$pintBin, str_replace('\\', '/', $relPackagePath)];
+        $target = str_replace('\\', '/', $relPackagePath);
+        $command = [$pintBin, $target];
         if (! $fix) {
             $command[] = '--test';
         }
@@ -269,26 +271,13 @@ class PackageVerifier
     }
 
     /** @return array{name: string, status: string, exit_code: int, command: string, output: string, duration_ms: int} */
-    private function checkPhpStan(string $root, string $packagePath, string $relPackagePath): array
+    private function checkPhpstan(string $root, string $packagePath, string $relPackagePath): array
     {
         $phpstanBin = $this->resolveBinary($root, 'phpstan');
-        $srcDir = $packagePath.DIRECTORY_SEPARATOR.'src';
-
-        if (! is_dir($srcDir)) {
-            return [
-                'name' => 'Static Analysis (PHPStan)',
-                'status' => 'not_configured',
-                'exit_code' => 0,
-                'command' => 'none',
-                'output' => 'No src/ directory found for static analysis.',
-                'duration_ms' => 0,
-            ];
-        }
-
         if ($phpstanBin === null) {
             return [
                 'name' => 'Static Analysis (PHPStan)',
-                'status' => 'skipped',
+                'status' => 'not_configured',
                 'exit_code' => 0,
                 'command' => 'none',
                 'output' => 'PHPStan binary not found in vendor/bin.',
@@ -296,10 +285,22 @@ class PackageVerifier
             ];
         }
 
+        $srcDir = $packagePath.DIRECTORY_SEPARATOR.'src';
+        if (! File::isDirectory($srcDir)) {
+            return [
+                'name' => 'Static Analysis (PHPStan)',
+                'status' => 'not_configured',
+                'exit_code' => 0,
+                'command' => 'none',
+                'output' => 'No src/ directory found in package.',
+                'duration_ms' => 0,
+            ];
+        }
+
         $stanConfig = $packagePath.DIRECTORY_SEPARATOR.'phpstan.neon';
         $target = str_replace('\\', '/', $relPackagePath.'/src');
 
-        if (file_exists($stanConfig)) {
+        if (File::exists($stanConfig)) {
             $configRel = str_replace('\\', '/', $relPackagePath.'/phpstan.neon');
             $command = [$phpstanBin, 'analyse', '--configuration='.$configRel, '--memory-limit=1G'];
         } else {
@@ -313,10 +314,10 @@ class PackageVerifier
     private function checkTests(string $root, string $packagePath, string $relPackagePath): array
     {
         $phpunitXml = $packagePath.DIRECTORY_SEPARATOR.'phpunit.xml';
-        if (! file_exists($phpunitXml)) {
+        if (! File::exists($phpunitXml)) {
             $phpunitXml .= '.dist';
         }
-        if (! file_exists($phpunitXml)) {
+        if (! File::exists($phpunitXml)) {
             return [
                 'name' => 'Automated Tests',
                 'status' => 'not_configured',
@@ -330,7 +331,7 @@ class PackageVerifier
         $xmlRel = str_replace('\\', '/', $relPackagePath.'/'.basename($phpunitXml));
         $pestBin = $this->resolveBinary($root, 'pest');
         $phpunitBin = $this->resolveBinary($root, 'phpunit');
-        $isPest = file_exists($packagePath.DIRECTORY_SEPARATOR.'tests'.DIRECTORY_SEPARATOR.'Pest.php') && $pestBin !== null;
+        $isPest = File::exists($packagePath.DIRECTORY_SEPARATOR.'tests'.DIRECTORY_SEPARATOR.'Pest.php') && $pestBin !== null;
 
         if ($isPest) {
             $command = [$pestBin, '-c', $xmlRel];
@@ -338,7 +339,7 @@ class PackageVerifier
             $command = [$phpunitBin, '-c', $xmlRel];
         } else {
             $artisanPath = $root.DIRECTORY_SEPARATOR.'artisan';
-            if (file_exists($artisanPath)) {
+            if (File::exists($artisanPath)) {
                 $command = [PHP_BINARY, 'artisan', 'test', '-c', $xmlRel];
             } else {
                 $command = ['phpunit', '-c', $xmlRel];
@@ -348,13 +349,8 @@ class PackageVerifier
         $command[] = '--fail-on-empty-test-suite';
         $testEnv = [
             'APP_ENV' => 'testing',
-            'CACHE_STORE' => 'array',
-            'CACHE_DRIVER' => 'array',
-            'SESSION_DRIVER' => 'array',
-            'QUEUE_CONNECTION' => 'sync',
-            'MAIL_MAILER' => 'array',
-            'PULSE_ENABLED' => 'false',
-            'TELESCOPE_ENABLED' => 'false',
+            'DB_CONNECTION' => 'sqlite',
+            'DB_DATABASE' => ':memory:',
         ];
 
         return $this->runCommand($command, $root, 'Automated Tests', $testEnv);
@@ -408,13 +404,13 @@ class PackageVerifier
 
         if (PHP_OS_FAMILY === 'Windows') {
             $batPath = $binDir.DIRECTORY_SEPARATOR.$binName.'.bat';
-            if (file_exists($batPath)) {
+            if (File::exists($batPath)) {
                 return $batPath;
             }
         }
 
         $defaultPath = $binDir.DIRECTORY_SEPARATOR.$binName;
-        if (file_exists($defaultPath)) {
+        if (File::exists($defaultPath)) {
             return $defaultPath;
         }
 

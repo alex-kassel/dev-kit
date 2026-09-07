@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace AlexKassel\DevKit;
 
-use JsonException;
+use Illuminate\Support\Facades\File;
 use RuntimeException;
 use stdClass;
 
@@ -158,27 +158,23 @@ class OrganizationResolver
     private function discoverHostVendor(string $root): ?string
     {
         $composerPath = rtrim($root, '/\\').DIRECTORY_SEPARATOR.'composer.json';
-        if (! file_exists($composerPath) || ! is_readable($composerPath)) {
-            return null;
-        }
-
-        $contents = @file_get_contents($composerPath);
-        if ($contents === false) {
+        if (! File::exists($composerPath) || ! is_readable($composerPath)) {
             return null;
         }
 
         try {
+            $contents = File::get($composerPath);
             $manifest = json_decode($contents, false, 512, JSON_THROW_ON_ERROR);
             if ($manifest instanceof stdClass && isset($manifest->name) && is_string($manifest->name)) {
                 if (str_contains($manifest->name, '/')) {
                     [$vendor] = explode('/', $manifest->name, 2);
                     // Filter out generic skeleton vendors like 'laravel' unless desired
-                    if (! in_array(strtolower($vendor), ['laravel'], true)) {
+                    if ($vendor !== 'laravel' && $this->isValidVendor($vendor)) {
                         return $vendor;
                     }
                 }
             }
-        } catch (JsonException) {
+        } catch (\Throwable) {
             return null;
         }
 
@@ -191,21 +187,13 @@ class OrganizationResolver
     private function discoverLocalVendors(string $root): array
     {
         $packagesDir = rtrim($root, '/\\').DIRECTORY_SEPARATOR.'packages';
-        if (! is_dir($packagesDir)) {
+        if (! File::isDirectory($packagesDir)) {
             return [];
         }
 
-        $entries = @scandir($packagesDir) ?: [];
         $vendors = [];
-
-        foreach ($entries as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $fullPath = $packagesDir.DIRECTORY_SEPARATOR.$entry;
-            if (is_dir($fullPath)) {
-                $vendors[] = $entry;
-            }
+        foreach (File::directories($packagesDir) as $fullPath) {
+            $vendors[] = basename($fullPath);
         }
 
         return $vendors;
