@@ -268,19 +268,11 @@ class WorkspaceInstaller
 
     private function read(string $path): string
     {
-        $contents = @file_get_contents($path);
-        if ($contents === false) {
-            throw new RuntimeException('Cannot read file: '.$path);
-        }
-
-        return $contents;
+        return FileIO::read($path);
     }
 
     private function write(string $path, string $contents): void
     {
-        $result = @file_put_contents($path, $contents);
-        if ($result === false) {
-            throw new RuntimeException('Cannot write file: '.$path);
-        }
+        FileIO::write($path, $contents);
     }
 }

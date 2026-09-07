@@ -57,11 +57,15 @@ class InstallCommand extends Command
         }
 
         if ($isLocal && ! $isDryRun) {
-            $this->call('pkg:clone', [
+            $exitCode = $this->call('pkg:clone', [
                 'package' => 'alex-kassel/dev-kit',
                 '--branch' => $branch,
                 '--update' => true,
             ]);
+
+            if ($exitCode !== self::SUCCESS) {
+                return $exitCode;
+            }
         }
 
         return self::SUCCESS;

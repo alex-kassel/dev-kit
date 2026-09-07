@@ -161,7 +161,7 @@ class PackageRemover
             if ($changed) {
                 $encoded = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
                 if ($encoded !== false) {
-                    file_put_contents($composerPath, $encoded."\n");
+                    FileIO::write($composerPath, $encoded."\n", $contents);
                 }
             }
         });

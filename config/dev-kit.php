@@ -44,4 +44,22 @@ return [
     'sources' => [
         // 'acme/special-pkg' => 'git@gitlab.com:acme/special-pkg.git',
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Process Execution Timeouts & Resource Limits
+    |--------------------------------------------------------------------------
+    |
+    | Maximum execution times (in seconds) for background processes and verification
+    | suites, plus memory limit overrides for static analysis (PHPStan).
+    |
+    */
+    'timeouts' => [
+        'verification' => 120.0,
+        'composer_update' => 300.0,
+        'composer_update_recursive' => 600.0,
+        'git_operation' => 60.0,
+    ],
+
+    'memory_limit' => '1G',
 ];

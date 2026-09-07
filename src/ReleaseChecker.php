@@ -11,7 +11,8 @@ class ReleaseChecker
 {
     public function __construct(
         private readonly PackageVerifier $verifier = new PackageVerifier,
-        private readonly ReadmeValidator $readmeValidator = new ReadmeValidator
+        private readonly ReadmeValidator $readmeValidator = new ReadmeValidator,
+        private readonly PackagePathResolver $pathResolver = new PackagePathResolver
     ) {}
 
     /**
@@ -30,7 +31,7 @@ class ReleaseChecker
             throw new RuntimeException('Host directory does not exist.');
         }
 
-        $packagePath = $this->resolvePackagePath($root, $package);
+        $packagePath = $this->pathResolver->resolve($root, $package);
         $relPackagePath = str_replace([$root.DIRECTORY_SEPARATOR, $root.'/'], '', $packagePath);
         $relPackagePath = str_replace('\\', '/', $relPackagePath);
 
@@ -206,23 +207,6 @@ class ReleaseChecker
             'latest_tag' => $latestTag,
             'checks' => $checks,
         ];
-    }
-
-    private function resolvePackagePath(string $root, string $package): string
-    {
-        $rawPackage = trim($package, '/\\ ');
-        $candidates = [
-            $root.DIRECTORY_SEPARATOR.$rawPackage,
-            $root.DIRECTORY_SEPARATOR.'packages'.DIRECTORY_SEPARATOR.$rawPackage,
-        ];
-
-        foreach ($candidates as $candidate) {
-            if (is_dir($candidate)) {
-                return realpath($candidate) ?: $candidate;
-            }
-        }
-
-        throw new RuntimeException("Package directory not found for '{$package}'. Checked: packages/{$rawPackage}");
     }
 
     private function extractCertifiedCommit(string $content): ?string

@@ -52,14 +52,7 @@ class PackageSynchronizer
     private function doSync(string $root, bool $clean, ?string $filter, bool $dryRun): array
     {
         $rootComposerPath = $root.DIRECTORY_SEPARATOR.'composer.json';
-        if (! file_exists($rootComposerPath)) {
-            throw new RuntimeException('Root composer.json not found.');
-        }
-
-        $composerContents = @file_get_contents($rootComposerPath);
-        if ($composerContents === false) {
-            throw new RuntimeException('Cannot read root composer.json.');
-        }
+        $composerContents = FileIO::read($rootComposerPath);
 
         try {
             /** @var array<string, mixed>|null $composerData */
@@ -158,7 +151,7 @@ class PackageSynchronizer
             if ($encoded === false) {
                 throw new RuntimeException('Failed to encode updated composer.json.');
             }
-            file_put_contents($rootComposerPath, $encoded."\n");
+            FileIO::write($rootComposerPath, $encoded."\n", $composerContents);
         }
 
         return [

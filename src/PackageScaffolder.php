@@ -62,11 +62,7 @@ class PackageScaffolder
 
             foreach ($filesToCreate as $relFile => $content) {
                 $absFilePath = $packageDir.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $relFile);
-                $fileDir = dirname($absFilePath);
-                if (! is_dir($fileDir) && ! @mkdir($fileDir, 0777, true) && ! is_dir($fileDir)) {
-                    throw new RuntimeException("Cannot create directory: {$fileDir}");
-                }
-                file_put_contents($absFilePath, $content);
+                FileIO::write($absFilePath, $content);
                 $createdFiles[] = "{$relPackageDir}/{$relFile}";
             }
 
@@ -490,7 +486,7 @@ README;
                 return 'invalid_root_composer';
             }
 
-            file_put_contents($composerPath, $encoded."\n");
+            FileIO::write($composerPath, $encoded."\n", $content);
 
             return 'registered';
         });

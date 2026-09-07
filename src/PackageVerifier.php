@@ -10,7 +10,8 @@ use Symfony\Component\Process\Process;
 class PackageVerifier
 {
     public function __construct(
-        private readonly PhantomDependencyDetector $phantomDetector = new PhantomDependencyDetector
+        private readonly PhantomDependencyDetector $phantomDetector = new PhantomDependencyDetector,
+        private readonly PackagePathResolver $pathResolver = new PackagePathResolver
     ) {}
 
     /**
@@ -24,7 +25,7 @@ class PackageVerifier
             throw new RuntimeException('Host directory does not exist.');
         }
 
-        $packagePath = $this->resolvePackagePath($root, $package);
+        $packagePath = $this->pathResolver->resolve($root, $package);
         $relPackagePath = str_replace([$root.DIRECTORY_SEPARATOR, $root.'/'], '', $packagePath);
         $relPackagePath = str_replace('\\', '/', $relPackagePath);
 
@@ -226,23 +227,6 @@ class PackageVerifier
             'failed' => $failedTotal,
             'results' => $results,
         ];
-    }
-
-    private function resolvePackagePath(string $root, string $package): string
-    {
-        $rawPackage = trim($package, '/\\ ');
-        $candidates = [
-            $root.DIRECTORY_SEPARATOR.$rawPackage,
-            $root.DIRECTORY_SEPARATOR.'packages'.DIRECTORY_SEPARATOR.$rawPackage,
-        ];
-
-        foreach ($candidates as $candidate) {
-            if (is_dir($candidate)) {
-                return realpath($candidate) ?: $candidate;
-            }
-        }
-
-        throw new RuntimeException("Package directory not found for '{$package}'. Checked: packages/{$rawPackage}");
     }
 
     /** @return array{name: string, status: string, exit_code: int, command: string, output: string, duration_ms: int} */
