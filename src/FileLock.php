@@ -7,6 +7,9 @@ namespace AlexKassel\DevKit;
 use Closure;
 use RuntimeException;
 
+/**
+ * @internal
+ */
 class FileLock
 {
     /**

@@ -6,6 +6,9 @@ namespace AlexKassel\DevKit;
 
 use RuntimeException;
 
+/**
+ * @internal
+ */
 class PackagePathResolver
 {
     public function resolve(string $root, string $package): string

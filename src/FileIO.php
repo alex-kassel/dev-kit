@@ -8,6 +8,9 @@ use RuntimeException;
 use Symfony\Component\Filesystem\Exception\IOExceptionInterface;
 use Symfony\Component\Filesystem\Filesystem;
 
+/**
+ * @internal
+ */
 class FileIO
 {
     /** Remove a validated directory without following links or invoking a shell. */
