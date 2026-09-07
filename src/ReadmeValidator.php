@@ -119,7 +119,36 @@ class ReadmeValidator
                 ];
             }
 
-            // 6. Required Canonical Sections Check
+            // 6. Canonical Badge Palette Check
+            $standardBadges = [
+                'Version' => '/packagist(?:\.org\/packages|\/v\/)/i',
+                'Laravel' => '/badge\/Laravel/i',
+                'PHP' => '/badge\/PHP/i',
+                'PHPStan' => '/badge\/PHPStan/i',
+            ];
+
+            $missingBadges = [];
+            foreach ($standardBadges as $badgeName => $pattern) {
+                if (! preg_match($pattern, $content)) {
+                    $missingBadges[] = $badgeName;
+                }
+            }
+
+            if (! empty($missingBadges)) {
+                $checks['standard_badges'] = [
+                    'name' => 'Standard Badge Palette',
+                    'status' => 'failed',
+                    'message' => 'Missing canonical badge(s): '.implode(', ', $missingBadges).'. Required: Version, Laravel, PHP, PHPStan.',
+                ];
+            } else {
+                $checks['standard_badges'] = [
+                    'name' => 'Standard Badge Palette',
+                    'status' => 'passed',
+                    'message' => 'All standard palette badges present (Version, Laravel, PHP, PHPStan).',
+                ];
+            }
+
+            // 7. Required Canonical Sections Check
             $requiredSections = [
                 'Requirements' => '/##\s+Requirements/i',
                 'Installation' => '/##\s+Installation/i',

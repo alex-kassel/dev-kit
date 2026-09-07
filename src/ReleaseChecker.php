@@ -86,8 +86,7 @@ class ReleaseChecker
         $releaseGateFile = $packagePath.DIRECTORY_SEPARATOR.'RELEASE-GATE.md';
         if (file_exists($releaseGateFile)) {
             $gateContent = (string) file_get_contents($releaseGateFile);
-            preg_match('/commit[:\s`]+([a-f0-9]{7,40})/i', $gateContent, $matches);
-            $certifiedCommit = $matches[1] ?? null;
+            $certifiedCommit = $this->extractCertifiedCommit($gateContent);
 
             if ($certifiedCommit !== null && is_dir($gitDir)) {
                 $deltaProcess = new Process(
@@ -95,26 +94,41 @@ class ReleaseChecker
                     $packagePath
                 );
                 $deltaProcess->run();
-                $deltaCount = (int) trim($deltaProcess->getOutput());
 
-                if ($deltaCount === 0) {
-                    $checks['audit_freshness'] = [
-                        'name' => 'Audit Freshness Gate',
-                        'status' => 'passed',
-                        'message' => "Audit certificate is 100% fresh (0 source commits since certified {$certifiedCommit}).",
-                    ];
+                if ($deltaProcess->getExitCode() === 0) {
+                    $deltaCount = (int) trim($deltaProcess->getOutput());
+
+                    if ($deltaCount === 0) {
+                        $checks['audit_freshness'] = [
+                            'name' => 'Audit Freshness Gate',
+                            'status' => 'passed',
+                            'message' => "Audit certificate is up to date (0 source commits since certified {$certifiedCommit}).",
+                        ];
+                    } else {
+                        $checks['audit_freshness'] = [
+                            'name' => 'Audit Freshness Gate',
+                            'status' => 'action_required',
+                            'message' => "Source code drift detected: {$deltaCount} commit(s) made since audit certificate at {$certifiedCommit}. Consider running full audit.",
+                        ];
+                    }
                 } else {
                     $checks['audit_freshness'] = [
                         'name' => 'Audit Freshness Gate',
                         'status' => 'action_required',
-                        'message' => "Source code drift detected: {$deltaCount} commit(s) made since audit certificate at {$certifiedCommit}. Consider running full audit.",
+                        'message' => "Certified commit {$certifiedCommit} not reachable in git history. Stale certificate or rebased branch.",
                     ];
                 }
+            } elseif ($certifiedCommit === null) {
+                $checks['audit_freshness'] = [
+                    'name' => 'Audit Freshness Gate',
+                    'status' => 'action_required',
+                    'message' => 'RELEASE-GATE.md present but missing a certified commit hash.',
+                ];
             } else {
                 $checks['audit_freshness'] = [
                     'name' => 'Audit Freshness Gate',
                     'status' => 'passed',
-                    'message' => 'RELEASE-GATE.md present.',
+                    'message' => "RELEASE-GATE.md present with certified commit {$certifiedCommit} (git not initialized).",
                 ];
             }
         } else {
@@ -209,5 +223,19 @@ class ReleaseChecker
         }
 
         throw new RuntimeException("Package directory not found for '{$package}'. Checked: packages/{$rawPackage}");
+    }
+
+    private function extractCertifiedCommit(string $content): ?string
+    {
+        $lines = preg_split('/\r?\n/', $content) ?: [];
+        foreach ($lines as $line) {
+            if (preg_match('/commit/i', $line)) {
+                if (preg_match('/\b([a-f0-9]{7,40})\b/i', $line, $matches)) {
+                    return strtolower($matches[1]);
+                }
+            }
+        }
+
+        return null;
     }
 }

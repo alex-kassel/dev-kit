@@ -89,7 +89,12 @@ class ClonePackageCommand extends Command
                 if (! $isJson) {
                     $this->info('Running composer update to link localized packages...');
                 }
-                $process = new Process(['composer', 'update', '--prefer-dist', '--no-interaction'], $root);
+                $packageNames = array_values(array_unique(array_map(
+                    fn (array $pkg): string => (string) $pkg['name'],
+                    $result['packages']
+                )));
+
+                $process = new Process(['composer', 'update', ...$packageNames, '--with-all-dependencies', '--prefer-dist', '--no-interaction'], $root);
                 $process->setTimeout(600.0);
                 if (! $isJson) {
                     $process->run(function (string $type, string $buffer): void {
@@ -141,7 +146,7 @@ class ClonePackageCommand extends Command
             if (! $isJson) {
                 $this->info('Running composer update for '.$packageName.'...');
             }
-            $process = new Process(['composer', 'update', $packageName, '--prefer-dist', '--no-interaction'], $root);
+            $process = new Process(['composer', 'update', $packageName, '--with-all-dependencies', '--prefer-dist', '--no-interaction'], $root);
             $process->setTimeout(300.0);
             if (! $isJson) {
                 $process->run(function (string $type, string $buffer): void {

@@ -74,6 +74,109 @@ class PackageLocalizerTest extends TestCase
         $this->runGraph(['mine/a' => ['mine/b' => 'dev-main || dev-other'], 'mine/b' => []]);
     }
 
+    public function test_semver_constraint_satisfied_by_package_declared_version(): void
+    {
+        $root = sys_get_temp_dir().'/dev-kit-semver-test-'.bin2hex(random_bytes(8));
+        mkdir($root.'/packages/mine/b', 0777, true);
+        file_put_contents($root.'/packages/mine/b/composer.json', json_encode([
+            'name' => 'mine/b',
+            'version' => '1.2.0',
+        ]));
+
+        $cloner = $this->createMock(PackageCloner::class);
+        $cloner->method('clonePackage')->willReturnCallback(function (string $r, string $name, ?string $branch = null): array {
+            return [
+                'name' => $name,
+                'path' => 'packages/'.$name,
+                'branch' => $branch ?? 'main',
+                'commit' => 'fixture',
+                'require' => (object) ($name === 'mine/a' ? ['mine/b' => '^1.0'] : []),
+                'require_dev' => (object) [],
+            ];
+        });
+        $cloner->method('inspectCheckout')->willReturnCallback(function (string $r, string $name): array {
+            return [
+                'name' => $name,
+                'path' => 'packages/'.$name,
+                'branch' => 'main',
+                'commit' => 'fixture',
+                'require' => (object) [],
+                'require_dev' => (object) [],
+            ];
+        });
+
+        $sources = ['mine/a' => 'https://example.invalid/a.git', 'mine/b' => 'https://example.invalid/b.git'];
+        $localizer = new PackageLocalizer($cloner, new SourceLocator);
+        $result = $localizer->localize($root, 'mine/a', 'main', $sources, ['mine']);
+
+        $this->assertSame('localized', $result['status']);
+        $this->assertCount(2, $result['packages']);
+
+        // Cleanup
+        unlink($root.'/packages/mine/b/composer.json');
+        rmdir($root.'/packages/mine/b');
+        rmdir($root.'/packages/mine');
+        rmdir($root.'/packages');
+        rmdir($root);
+    }
+
+    public function test_semver_constraint_fails_when_package_version_incompatible(): void
+    {
+        $root = sys_get_temp_dir().'/dev-kit-semver-incompatible-'.bin2hex(random_bytes(8));
+        mkdir($root.'/packages/mine/b', 0777, true);
+        file_put_contents($root.'/packages/mine/b/composer.json', json_encode([
+            'name' => 'mine/b',
+            'version' => '2.0.0',
+        ]));
+
+        $cloner = $this->createMock(PackageCloner::class);
+        $cloner->method('clonePackage')->willReturnCallback(function (string $r, string $name, ?string $branch = null): array {
+            return [
+                'name' => $name,
+                'path' => 'packages/'.$name,
+                'branch' => $branch ?? 'main',
+                'commit' => 'fixture',
+                'require' => (object) ($name === 'mine/a' ? ['mine/b' => '^1.0'] : []),
+                'require_dev' => (object) [],
+            ];
+        });
+        $cloner->method('inspectCheckout')->willReturnCallback(function (string $r, string $name): array {
+            return [
+                'name' => $name,
+                'path' => 'packages/'.$name,
+                'branch' => 'main',
+                'commit' => 'fixture',
+                'require' => (object) [],
+                'require_dev' => (object) [],
+            ];
+        });
+
+        $sources = ['mine/a' => 'https://example.invalid/a.git', 'mine/b' => 'https://example.invalid/b.git'];
+        $localizer = new PackageLocalizer($cloner, new SourceLocator);
+
+        try {
+            $this->expectException(RuntimeException::class);
+            $this->expectExceptionMessage('mine/a requires mine/b ^1.0, but local package versions (2.0.0, dev-main) do not satisfy the constraint.');
+            $localizer->localize($root, 'mine/a', 'main', $sources, ['mine']);
+        } finally {
+            if (file_exists($root.'/packages/mine/b/composer.json')) {
+                unlink($root.'/packages/mine/b/composer.json');
+            }
+            if (is_dir($root.'/packages/mine/b')) {
+                rmdir($root.'/packages/mine/b');
+            }
+            if (is_dir($root.'/packages/mine')) {
+                rmdir($root.'/packages/mine');
+            }
+            if (is_dir($root.'/packages')) {
+                rmdir($root.'/packages');
+            }
+            if (is_dir($root)) {
+                rmdir($root);
+            }
+        }
+    }
+
     private function runGraph(array $graph): array
     {
         $cloner = $this->createMock(PackageCloner::class);

@@ -9,10 +9,6 @@ use Symfony\Component\Process\Process;
 
 class PackageRemover
 {
-    public function __construct(
-        private readonly PackageSynchronizer $synchronizer = new PackageSynchronizer
-    ) {}
-
     /**
      * @return array{
      *     schema_version: int,
@@ -51,7 +47,7 @@ class PackageRemover
 
         $unlinked = false;
         if (! $noSync) {
-            $this->synchronizer->sync($root, clean: true);
+            $this->unlinkPackageManifest($root, $rawPackage);
             $unlinked = true;
         }
 
@@ -124,5 +120,50 @@ class PackageRemover
         if (is_dir($path)) {
             throw new RuntimeException("Failed to completely delete directory: {$path}");
         }
+    }
+
+    private function unlinkPackageManifest(string $root, string $package): void
+    {
+        $composerPath = $root.DIRECTORY_SEPARATOR.'composer.json';
+        if (! file_exists($composerPath)) {
+            return;
+        }
+
+        $lockPath = $root.DIRECTORY_SEPARATOR.'.composer-manifest.lock';
+        FileLock::run($lockPath, function () use ($composerPath, $package): void {
+            $contents = @file_get_contents($composerPath);
+            if ($contents === false) {
+                return;
+            }
+
+            try {
+                /** @var array<string, mixed>|null $data */
+                $data = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
+            } catch (\JsonException) {
+                return;
+            }
+
+            if (! is_array($data)) {
+                return;
+            }
+
+            $changed = false;
+            if (isset($data['require']) && is_array($data['require']) && array_key_exists($package, $data['require'])) {
+                unset($data['require'][$package]);
+                $changed = true;
+            }
+
+            if (isset($data['require-dev']) && is_array($data['require-dev']) && array_key_exists($package, $data['require-dev'])) {
+                unset($data['require-dev'][$package]);
+                $changed = true;
+            }
+
+            if ($changed) {
+                $encoded = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+                if ($encoded !== false) {
+                    file_put_contents($composerPath, $encoded."\n");
+                }
+            }
+        });
     }
 }

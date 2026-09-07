@@ -456,40 +456,44 @@ README;
             return 'missing_root_composer';
         }
 
-        $content = file_get_contents($composerPath);
-        if ($content === false) {
-            return 'unreadable_root_composer';
-        }
+        $lockPath = $root.DIRECTORY_SEPARATOR.'.composer-manifest.lock';
 
-        try {
-            /** @var array<string, mixed>|null $json */
-            $json = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            return 'invalid_root_composer';
-        }
+        return FileLock::run($lockPath, function () use ($composerPath, $package): string {
+            $content = @file_get_contents($composerPath);
+            if ($content === false) {
+                return 'unreadable_root_composer';
+            }
 
-        if (! is_array($json)) {
-            return 'invalid_root_composer';
-        }
+            try {
+                /** @var array<string, mixed>|null $json */
+                $json = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+            } catch (JsonException) {
+                return 'invalid_root_composer';
+            }
 
-        /** @var array<string, string> $require */
-        $require = isset($json['require']) && is_array($json['require']) ? $json['require'] : [];
-        if (isset($require[$package])) {
-            return 'already_registered';
-        }
+            if (! is_array($json)) {
+                return 'invalid_root_composer';
+            }
 
-        $require[$package] = '@dev';
-        $json['require'] = $require;
+            /** @var array<string, string> $require */
+            $require = isset($json['require']) && is_array($json['require']) ? $json['require'] : [];
+            if (isset($require[$package])) {
+                return 'already_registered';
+            }
 
-        try {
-            $encoded = json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            return 'invalid_root_composer';
-        }
+            $require[$package] = '@dev';
+            $json['require'] = $require;
 
-        file_put_contents($composerPath, $encoded."\n");
+            try {
+                $encoded = json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+            } catch (JsonException) {
+                return 'invalid_root_composer';
+            }
 
-        return 'registered';
+            file_put_contents($composerPath, $encoded."\n");
+
+            return 'registered';
+        });
     }
 
     /**

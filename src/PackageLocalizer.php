@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace AlexKassel\DevKit;
 
+use Composer\Semver\Semver;
 use RuntimeException;
+use Symfony\Component\Process\Process;
 
 class PackageLocalizer
 {
@@ -26,10 +28,13 @@ class PackageLocalizer
         }
         $visited = [];
         $edges = [];
-        $visit = function (string $name, ?string $requiredBranch, string $from) use (&$visit, &$visited, &$edges, $root, $sources, $organizations, $defaultPattern): void {
+        $visit = function (string $name, ?string $requiredBranch, string $from, ?string $constraint = null) use (&$visit, &$visited, &$edges, $root, $sources, $organizations, $defaultPattern): void {
             if (isset($visited[$name])) {
                 if ($requiredBranch !== null && $requiredBranch !== '' && $visited[$name]['branch'] !== $requiredBranch) {
                     throw new RuntimeException($from.' requires '.$name.' dev-'.$requiredBranch.' but local branch is '.$visited[$name]['branch'].'. Checkout was not switched.');
+                }
+                if ($constraint !== null) {
+                    $this->assertSemverSatisfied($root, $name, $visited[$name], $constraint, $from);
                 }
 
                 return;
@@ -46,6 +51,9 @@ class PackageLocalizer
             if ($requiredBranch !== null && $requiredBranch !== '' && $checkout['branch'] !== $requiredBranch) {
                 throw new RuntimeException($from.' requires '.$name.' dev-'.$requiredBranch.' but local branch is '.$checkout['branch'].'. Checkout was not switched.');
             }
+            if ($constraint !== null) {
+                $this->assertSemverSatisfied($root, $name, $checkout, $constraint, $from);
+            }
             $visited[$name] = [
                 'name' => $name,
                 'path' => $checkout['path'],
@@ -55,19 +63,19 @@ class PackageLocalizer
             ];
             /** @var array<string, string> $requires */
             $requires = (array) $checkout['require'];
-            foreach ($requires as $dependency => $constraint) {
+            foreach ($requires as $dependency => $depConstraint) {
                 $owned = str_contains($dependency, '/') && in_array(explode('/', $dependency, 2)[0], $organizations, true);
                 $edges[] = [
                     'from' => $name,
                     'name' => $dependency,
-                    'constraint' => $constraint,
+                    'constraint' => $depConstraint,
                     'localize' => $owned,
                 ];
                 if (! $owned) {
                     continue;
                 }
                 $branches = [];
-                $alternatives = preg_split('/\s*\|\|\s*/', $constraint) ?: [];
+                $alternatives = preg_split('/\s*\|\|\s*/', $depConstraint) ?: [];
                 foreach ($alternatives as $alternative) {
                     if (preg_match('~^dev-([a-zA-Z0-9][a-zA-Z0-9._/-]*)$~D', trim($alternative), $matches)) {
                         $branches[] = $matches[1];
@@ -75,10 +83,10 @@ class PackageLocalizer
                 }
                 $branches = array_values(array_unique($branches));
                 if (count($branches) > 1) {
-                    throw new RuntimeException('Ambiguous ref selection for '.$dependency.' '.$constraint.' required by '.$name.'. Expected at most one dev-* alternative.');
+                    throw new RuntimeException('Ambiguous ref selection for '.$dependency.' '.$depConstraint.' required by '.$name.'. Expected at most one dev-* alternative.');
                 }
                 $targetBranch = count($branches) === 1 ? $branches[0] : null;
-                $visit($dependency, $targetBranch, $name);
+                $visit($dependency, $targetBranch, $name, $depConstraint);
             }
         };
         try {
@@ -94,5 +102,111 @@ class PackageLocalizer
             'packages' => array_values($visited),
             'requirements' => $edges,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $checkout
+     */
+    private function assertSemverSatisfied(string $root, string $name, array $checkout, string $constraint, string $from): void
+    {
+        $packagePath = rtrim($root, '/\\').'/packages/'.$name;
+        $versions = $this->detectCandidateVersions($packagePath, (string) ($checkout['branch'] ?? ''));
+
+        $alternatives = preg_split('/\s*\|\|\s*/', $constraint) ?: [];
+        $hasSemverConstraints = false;
+        foreach ($alternatives as $alt) {
+            $trimmed = trim($alt);
+            if (! str_starts_with($trimmed, 'dev-')) {
+                $hasSemverConstraints = true;
+                break;
+            }
+        }
+
+        if (! $hasSemverConstraints) {
+            return;
+        }
+
+        foreach ($versions as $version) {
+            try {
+                if (Semver::satisfies($version, $constraint)) {
+                    return;
+                }
+            } catch (\UnexpectedValueException) {
+                // If version string is malformed for Semver, continue
+            }
+        }
+
+        $hasExplicitVersion = $this->hasExplicitVersion($packagePath);
+        if (! $hasExplicitVersion) {
+            return;
+        }
+
+        $checkedVersions = empty($versions) ? 'none' : implode(', ', $versions);
+        throw new RuntimeException("{$from} requires {$name} {$constraint}, but local package versions ({$checkedVersions}) do not satisfy the constraint.");
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function detectCandidateVersions(string $packagePath, string $branch): array
+    {
+        $versions = [];
+
+        $manifestPath = $packagePath.'/composer.json';
+        if (file_exists($manifestPath)) {
+            $content = @file_get_contents($manifestPath);
+            if ($content !== false) {
+                /** @var array<string, mixed>|null $json */
+                $json = json_decode($content, true);
+                if (is_array($json) && isset($json['version']) && is_string($json['version'])) {
+                    $versions[] = ltrim($json['version'], 'v');
+                }
+            }
+        }
+
+        if (is_dir($packagePath.'/.git')) {
+            $process = new Process(['git', 'tag', '-l', '--sort=-v:refname'], $packagePath);
+            $process->run();
+            if ($process->getExitCode() === 0) {
+                $lines = preg_split('/\r?\n/', trim($process->getOutput())) ?: [];
+                foreach ($lines as $line) {
+                    $trimmed = trim($line);
+                    if ($trimmed !== '') {
+                        $versions[] = ltrim($trimmed, 'v');
+                    }
+                }
+            }
+        }
+
+        if ($branch !== '') {
+            $versions[] = 'dev-'.$branch;
+        }
+
+        return array_values(array_unique($versions));
+    }
+
+    private function hasExplicitVersion(string $packagePath): bool
+    {
+        $manifestPath = $packagePath.'/composer.json';
+        if (file_exists($manifestPath)) {
+            $content = @file_get_contents($manifestPath);
+            if ($content !== false) {
+                /** @var array<string, mixed>|null $json */
+                $json = json_decode($content, true);
+                if (is_array($json) && isset($json['version']) && is_string($json['version']) && trim($json['version']) !== '') {
+                    return true;
+                }
+            }
+        }
+
+        if (is_dir($packagePath.'/.git')) {
+            $process = new Process(['git', 'tag', '-l'], $packagePath);
+            $process->run();
+            if ($process->getExitCode() === 0 && trim($process->getOutput()) !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
