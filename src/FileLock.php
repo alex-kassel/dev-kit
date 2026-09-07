@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AlexKassel\DevKit;
 
 use Closure;
+use Illuminate\Support\Facades\File;
 use RuntimeException;
 
 /**
@@ -23,7 +24,9 @@ class FileLock
     public static function run(string $lockFilePath, Closure $callback, int $timeoutSeconds = 10): mixed
     {
         $dir = dirname($lockFilePath);
-        if (! is_dir($dir) && ! @mkdir($dir, 0777, true) && ! is_dir($dir)) {
+        try {
+            File::ensureDirectoryExists($dir);
+        } catch (\Throwable) {
             throw new RuntimeException("Cannot create directory for lock file: {$dir}");
         }
 
