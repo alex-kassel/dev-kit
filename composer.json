@@ -27,12 +27,12 @@
         "illuminate/console": "^11.0 || ^12.0 || ^13.0",
         "illuminate/contracts": "^11.0 || ^12.0 || ^13.0",
         "illuminate/support": "^11.0 || ^12.0 || ^13.0",
-        "symfony/process": "^7.0 || ^8.0"
-    },
-    "require-dev": {
+        "symfony/process": "^7.0 || ^8.0",
         "orchestra/testbench": "^9.0 || ^10.0 || ^11.0",
-        "phpunit/phpunit": "^11.0 || ^12.0"
+        "phpunit/phpunit": "^11.0 || ^12.0",
+        "phpstan/phpstan": "^1.12 || ^2.0"
     },
+    "require-dev": {},
     "autoload": {
         "psr-4": {
             "AlexKassel\\DevKit\\": "src/"
