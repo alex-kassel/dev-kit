@@ -25,8 +25,8 @@
 
 ## Key Features
 
-* **Deterministic Workspace Setup (pkg:install):** Prepares host path repositories, gitignore rules, Artisan command shortcuts, and synchronizes agent instructions with optional --force overwrite.
-* **Smart Package Generator (pkg:make):** Scaffolds enterprise packages with archetype presets (library, engine, domain), strict typing, and full test suites.
+* **Deterministic Workspace Setup (pkg:install):** Prepares host path repositories, gitignore rules, Artisan command shortcuts, automatic Laravel Boost integration (`boost:install`), and synchronizes agent instructions with optional --force overwrite.
+* **Smart Package Generator (pkg:make):** Scaffolds enterprise packages with archetype presets (library, engine, domain), customizable publishable stubs (`vendor:publish --tag=dev-kit-stubs`), strict typing, and full test suites.
 * **Remote Git Ingestion (pkg:clone):** Clones standalone packages from remote Git repositories with automatic default branch detection, recursive SemVer dependency localization, and streaming `composer update`.
 * **Safe Package Removal (pkg:remove):** Safely removes local packages with uncommitted/unpushed Git hygiene guards, removes the root dependency declaration; Composer installation state is updated separately.
 * **Concurrency File Locking:** Advisory `flock` protection with bounded randomized retry on all workspace manifest operations, coordinating cooperating DevKit commands; atomic file replacement protects individual writes.
@@ -139,10 +139,10 @@ php artisan pkg:release-check alex-kassel/dev-kit
 ---
 
 ## AI Agent Integration
+ 
+`dev-kit` automatically equips host repositories with standardized agent runbooks and modular skills, working seamlessly alongside Laravel Boost:
 
-`dev-kit` automatically equips host repositories with standardized agent runbooks and modular skills:
-
-* `AGENTS.md`: Repository guidelines, core architectural invariants, and command indexes.
+* `AGENTS.md`: Repository guidelines, core architectural invariants, and command indexes (composed cleanly with `<laravel-boost-guidelines>`).
 * `.agents/skills/`: Procedural knowledge modules for autonomous agents (Antigravity, Cursor, Copilot):
   - `package-scaffolding`: Deterministic package initialization.
   - `package-verification`: Linting, PHPStan Level 8 analysis, and test suites.
