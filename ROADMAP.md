@@ -8,13 +8,13 @@ This document tracks the prioritized development roadmap for `alex-kassel/dev-ki
 
 | Priority | ID | Feature / Component | Status | Target Milestone |
 |---|---|---|---|---|
-| **Critical** | **P1.1** | Package Boundary & Phantom Dependency Detection (`composer-require-checker`) | **Planned** | v0.1.0 |
-| **Critical** | **P1.2** | Default Remote Branch Autodetection in `pkg:clone` | **Planned** | v0.1.0 |
-| **Critical** | **P1.3** | SemVer Dependency Localization without Solver Duplication | **Planned** | v0.1.0 |
+| **Critical** | **P1.1** | Package Boundary & Phantom Dependency Detection | **Evaluated (Non-Applicable to Monorepo)** | v0.1.0 |
+| **Critical** | **P1.2** | Default Remote Branch Autodetection in `pkg:clone` | **Completed** | v0.1.0 |
+| **Critical** | **P1.3** | SemVer Dependency Localization without Solver Duplication | **Completed** | v0.1.0 |
 | **High** | **P2.1** | Clean Standalone Test Run (`--isolated` verification) | **Planned** | v0.1.1 |
-| **High** | **P2.2** | Safe Package Removal (`php artisan pkg:remove`) | **Planned** | v0.1.1 |
-| **High** | **P2.3** | Tooling Command Parity & Registration (`composer test:tooling`) | **Planned** | v0.1.1 |
-| **High** | **P2.4** | Atomic Concurrency Locking (`flock` on `composer.json`) | **Planned** | v0.1.1 |
+| **High** | **P2.2** | Safe Package Removal (`php artisan pkg:remove`) | **Completed** | v0.1.1 |
+| **High** | **P2.3** | Tooling Command Parity & Registration (`composer test:tooling`) | **Completed** | v0.1.1 |
+| **High** | **P2.4** | Atomic Concurrency Locking (`flock` on `composer.json`) | **Completed** | v0.1.1 |
 | **High** | **P2.5** | Upstream-Aware Rebase Guard in Git Automation | **Planned** | v0.1.1 |
 | **Medium** | **P3.1** | Declarative Workspace Manifest (`workspace.yaml` & `pkg:restore`) | **Deferred to Phase 3** | v0.2.0 |
 | **Medium** | **P3.2** | Native Artisan Audit Command (`php artisan pkg:audit`) | **Planned** | v0.2.0 |
@@ -31,11 +31,10 @@ This document tracks the prioritized development roadmap for `alex-kassel/dev-ki
 
 #### P1.1: Package Boundary & Phantom Dependency Detection
 - **Rationale**: In a monorepo sharing the host `vendor/`, packages can inadvertently use classes declared only by the host skeleton. Such packages pass local tests and static analysis, but break immediately when installed standalone via Packagist.
-- **Approach**:
-  - Integrate `maglnet/composer-require-checker`.
-  - Add a dedicated check step `boundary` to `php artisan pkg:check <pkg>`.
-  - Ensure zero false positives on standard PHP extensions and Composer polyfills.
-- **Outcome**: Deterministic prevention of host dependency leakage.
+- **Evaluation & Empirical Finding**:
+  - `maglnet/composer-require-checker` was evaluated. However, it mandates a physical `vendor/` and `installed.json` inside each package's local directory, violating the fundamental monorepo invariant of shared host `vendor/`. Artificial workaround hacks (such as synthetic `vendor-dir` manifests) introduce brittle file coupling.
+  - The phantom dependency and standalone verification gate is cleanly addressed at the release stage via **P2.1 (Isolated Package Verification)** using `git archive` and clean temporary installation.
+- **Outcome**: Concluded that external AST require-checking tool is architecturally incompatible with clean monorepo constraints; superseded by clean standalone export testing in P2.1.
 
 #### P1.2: Default Remote Branch Autodetection in `pkg:clone`
 - **Rationale**: Currently, `--branch` is mandatory in `PackageCloner`. If omitted, execution fails. Git natively resolves remote `HEAD` (whether `main`, `master`, or `develop`).

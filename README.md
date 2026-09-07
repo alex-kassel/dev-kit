@@ -27,7 +27,9 @@
 
 * **Deterministic Workspace Setup (pkg:install):** Prepares host path repositories, gitignore rules, Artisan command shortcuts, and synchronizes agent instructions with optional --force overwrite.
 * **Smart Package Generator (pkg:make):** Scaffolds enterprise packages with archetype presets (library, engine, domain), strict typing, and full test suites.
-* **Remote Git Ingestion (pkg:clone):** Clones standalone packages from remote Git repositories directly into the workspace and auto-wires them.
+* **Remote Git Ingestion (pkg:clone):** Clones standalone packages from remote Git repositories with automatic default branch detection, recursive SemVer dependency localization, and streaming `composer update`.
+* **Safe Package Removal (pkg:remove):** Safely removes local packages with uncommitted/unpushed Git hygiene guards, unlinks path repositories, and synchronizes workspace manifests.
+* **Concurrency File Locking:** Advisory `flock` protection with exponential backoff on all workspace manifest operations, preventing race conditions during parallel agent execution.
 * **Comprehensive Quality Gate (pkg:check):** Executes 4-stage quality verification (Composer validation, Pint style fixing, PHPStan Level 8, PHPUnit tests).
 * **Package Inventory (pkg:list):** Scans the workspace, reports versioning and path repository registration status.
 * **Automated Monorepo Sync (pkg:sync):** Detects local packages and synchronizes them with root dependencies and path repositories.
@@ -87,17 +89,28 @@ php artisan pkg:sync
 ### Ingesting & Localizing Packages (pkg:clone)
 
 ```bash
-# Clone a package repository and automatically sync into workspace
-php artisan pkg:clone alex-kassel/my-package --branch=main
+# Clone a package repository (automatically detects remote default branch HEAD)
+php artisan pkg:clone alex-kassel/my-package
+
+# Clone a specific branch explicitly
+php artisan pkg:clone alex-kassel/my-package --branch=develop
 
 # Support for unqualified package name (defaults to configured organization)
-php artisan pkg:clone dev-kit --branch=main
-
-# Clone and immediately link via composer update
-php artisan pkg:clone alex-kassel/my-package --branch=main --update
+php artisan pkg:clone dev-kit
 
 # Recursively clone and localize owned dependencies across multiple organizations
-php artisan pkg:clone acme/billing --branch=main --recursive --org=acme,partner-org
+# (Automatically runs streaming composer update upon completion; bypass with --no-update)
+php artisan pkg:clone acme/billing --recursive --org=acme,partner-org
+```
+
+### Safe Package Removal (pkg:remove)
+
+```bash
+# Safely remove a package (checks for uncommitted and unpushed Git changes)
+php artisan pkg:remove alex-kassel/my-package
+
+# Force removal of modified or unpushed work
+php artisan pkg:remove alex-kassel/my-package --force
 ```
 
 ### Scaffolding & Quality Assurance
@@ -159,15 +172,16 @@ Options in `config/dev-kit.php`:
 
 ## Testing
 
-Run unit and integration test suites:
+Run the dev-kit test suite via standard Composer tooling shortcut:
+
+```bash
+composer test:tooling
+```
+
+Or run directly via PHPUnit or universal verification:
 
 ```bash
 vendor/bin/phpunit packages/alex-kassel/dev-kit/tests
-```
-
-Or verify using the universal check command:
-
-```bash
 php artisan pkg:check alex-kassel/dev-kit
 ```
 

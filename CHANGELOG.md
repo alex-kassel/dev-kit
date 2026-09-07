@@ -5,6 +5,20 @@ All notable changes to `alex-kassel/dev-kit` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Advisory concurrency locking (`AlexKassel\DevKit\FileLock`) using non-blocking `flock(LOCK_EX | LOCK_NB)` with exponential backoff, wrapping `composer.json` and manifest mutations in `PackageSynchronizer` and `WorkspaceInstaller`.
+- Safe package removal command (`php artisan pkg:remove`) and `PackageRemover` service with Git working tree cleanliness and unpushed commits guards.
+- Tooling test runner shortcut `"test:tooling"` in root `composer.json` and `WorkspaceInstaller`.
+- Automatic remote default branch autodetection (remote `HEAD`) in `PackageCloner` when `--branch` is omitted.
+- Seamless SemVer dependency constraint localization (`^1.0`, `~2.0`) in `PackageLocalizer` without solver duplication.
+- Automatic streaming `composer update` on recursive package cloning with `--no-update` opt-out in `pkg:clone`.
+
+### Changed
+- Updated `ROADMAP.md` tracking completed milestones and empirical findings regarding standalone require checking.
+- Updated `README.md` documenting `pkg:remove`, concurrency protection, and `composer test:tooling`.
+
 ## [0.0.4] - 2026-09-07
 
 ### Added
