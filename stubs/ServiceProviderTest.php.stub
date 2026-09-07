@@ -1,0 +1,19 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }}\Tests\Unit;
+
+use {{ namespace }}\{{ class }}ServiceProvider;
+use {{ namespace }}\Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
+
+final class ServiceProviderTest extends TestCase
+{
+    #[Test]
+    public function it_registers_service_provider_cleanly(): void
+    {
+        $provider = $this->app->getProvider({{ class }}ServiceProvider::class);
+        $this->assertInstanceOf({{ class }}ServiceProvider::class, $provider);
+    }
+}

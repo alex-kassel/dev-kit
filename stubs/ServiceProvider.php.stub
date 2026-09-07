@@ -1,0 +1,20 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Illuminate\Support\ServiceProvider;
+
+final class {{ class }}ServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        // Bind contracts and domain services
+    }
+
+    public function boot(): void
+    {
+        // Boot lifecycle listeners or configurations
+    }
+}

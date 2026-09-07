@@ -1,0 +1,75 @@
+<h1 align="center">📦 {{ class }}</h1>
+
+<p align="center">
+  <strong>{{ class }} package for Laravel ecosystem</strong>
+</p>
+
+<p align="center">
+  <a href="#installation">Installation</a> •
+  <a href="#usage">Usage</a> •
+  <a href="#testing">Testing</a> •
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
+
+<p align="center">
+  <a href="https://packagist.org/packages/{{ package }}"><img src="https://img.shields.io/packagist/v/{{ package }}?color=f59e0b&logo=packagist&logoColor=white" alt="Latest Version"></a>
+  <a href="https://laravel.com"><img src="https://img.shields.io/badge/Laravel-11%20%7C%2012%20%7C%2013-ff2d20?logo=laravel&logoColor=white" alt="Laravel Support"></a>
+  <a href="https://php.net"><img src="https://img.shields.io/badge/PHP-8.2+-777bb4?logo=php&logoColor=white" alt="PHP Support"></a>
+  <a href="phpstan.neon"><img src="https://img.shields.io/badge/PHPStan-Level%208-8b5cf6?logo=php&logoColor=white" alt="PHPStan Level 8"></a>
+</p>
+
+---
+
+## Key Features
+
+* **Feature One:** Clean service provider integration.
+* **Feature Two:** Type-safe domain architecture.
+
+---
+
+## Requirements
+
+* **PHP:** 8.2+ (tested on 8.2, 8.3, 8.4)
+* **Laravel Framework:** 11.x | 12.x | 13.x
+
+---
+
+## Installation
+
+Install the package via Composer:
+
+```bash
+composer require {{ package }}
+```
+
+---
+
+## Usage
+
+```php
+use {{ namespace }}\{{ class }}ServiceProvider;
+
+// Implementation example
+```
+
+---
+
+## Testing
+
+```bash
+php artisan test -c packages/{{ package }}/phpunit.xml
+```
+
+---
+
+## Changelog
+
+Please see [CHANGELOG.md](CHANGELOG.md) for more information on what has changed recently.
+
+## Security Vulnerabilities
+
+Please review [Security Policies](https://github.com/{{ package }}/security/policy) on how to report vulnerabilities.
+
+## License
+
+The MIT License (MIT). Please see [License File](LICENSE) for more information.

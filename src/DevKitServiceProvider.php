@@ -29,6 +29,10 @@ class DevKitServiceProvider extends ServiceProvider
                 __DIR__.'/../config/dev-kit.php' => $this->app->configPath('dev-kit.php'),
             ], 'dev-kit-config');
 
+            $this->publishes([
+                __DIR__.'/../stubs' => $this->app->basePath('stubs/dev-kit'),
+            ], 'dev-kit-stubs');
+
             $this->commands([
                 InstallCommand::class,
                 ListPackagesCommand::class,

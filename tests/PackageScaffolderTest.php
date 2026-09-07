@@ -110,4 +110,17 @@ class PackageScaffolderTest extends TestCase
         $this->expectExceptionMessage('already exists and is not empty');
         $scaffolder->scaffold($this->root, 'mine/existing');
     }
+
+    public function test_scaffold_uses_published_stubs_when_available(): void
+    {
+        $customStubsDir = $this->root.'/stubs/dev-kit';
+        mkdir($customStubsDir, 0777, true);
+        file_put_contents($customStubsDir.'/README.md.stub', '# Custom {{ class }} Readme');
+
+        $scaffolder = new PackageScaffolder;
+        $scaffolder->scaffold($this->root, 'alex-kassel/custom-stubs-pkg', 'library', false, false, false);
+
+        $readme = (string) file_get_contents($this->root.'/packages/alex-kassel/custom-stubs-pkg/README.md');
+        $this->assertSame('# Custom CustomStubsPkg Readme', trim($readme));
+    }
 }

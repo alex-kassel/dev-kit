@@ -1,0 +1,8 @@
+/vendor/
+/.phpunit.cache/
+/.phpunit.result.cache
+/build/
+/.audit/
+/.audits/
+.env
+*.lock
