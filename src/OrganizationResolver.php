@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AlexKassel\DevKit;
 
 use JsonException;
+use RuntimeException;
 use stdClass;
 
 class OrganizationResolver
@@ -137,9 +138,11 @@ class OrganizationResolver
         }
 
         $orgs = $this->resolve($root, null, $cliOrganizations, $configuredOrganizations);
-        $vendor = $orgs[0] ?? 'alex-kassel';
+        if ($orgs === []) {
+            throw new RuntimeException("Unable to determine vendor organization for unqualified package '{$trimmed}'. Please specify in 'vendor/package' format or configure dev-kit.organizations.");
+        }
 
-        return $vendor.'/'.$trimmed;
+        return $orgs[0].'/'.$trimmed;
     }
 
     /**

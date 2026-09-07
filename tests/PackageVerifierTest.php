@@ -81,4 +81,13 @@ class PackageVerifierTest extends TestCase
         $this->assertCount(1, $result['results']);
         $this->assertSame('mine/example', $result['results'][0]['package']);
     }
+
+    public function test_verify_includes_isolated_check_when_requested(): void
+    {
+        $verifier = new PackageVerifier;
+        $result = $verifier->verify($this->root, 'mine/example', false, null, true);
+
+        $this->assertArrayHasKey('isolated', $result['checks']);
+        $this->assertSame('Isolated Dependencies (Phantom Check)', $result['checks']['isolated']['name']);
+    }
 }

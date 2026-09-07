@@ -127,6 +127,29 @@ MD;
         $this->assertSame('failed', $result['checks']['placeholders']['status']);
     }
 
+    public function test_validate_allows_double_pipes_inside_code_blocks(): void
+    {
+        $readmeWithCode = $this->standardReadme()."\n\n```php\nif (\$a || \$b) {\n    return true;\n}\n```\nAnd `inline || code` here.";
+        $this->createPackage('alex-kassel/test-pkg', $readmeWithCode);
+
+        $validator = new ReadmeValidator;
+        $result = $validator->validate($this->root, 'alex-kassel/test-pkg');
+
+        $this->assertSame('passed', $result['checks']['badge_syntax']['status']);
+    }
+
+    public function test_validate_allows_standard_markdown_heading(): void
+    {
+        $markdownHeadingReadme = preg_replace('/<h1\s+align=["\']center["\']>.*?<\/h1>/is', '# My Package', $this->standardReadme());
+        $this->createPackage('alex-kassel/test-pkg', $markdownHeadingReadme);
+
+        $validator = new ReadmeValidator;
+        $result = $validator->validate($this->root, 'alex-kassel/test-pkg');
+
+        $this->assertSame('passed', $result['checks']['hero_header']['status']);
+        $this->assertSame('passed', $result['status']);
+    }
+
     public function test_validate_fails_when_standard_badges_missing(): void
     {
         $noBadgesReadme = <<<'MD'

@@ -164,12 +164,12 @@ class ReleaseChecker
             ];
         }
 
-        // 4. Code Quality Suite (PackageVerifier)
-        $verifyResult = $this->verifier->verify($root, $package);
+        // 4. Code Quality Suite (PackageVerifier with Isolated Phantom Check)
+        $verifyResult = $this->verifier->verify($root, $package, false, null, true);
         $checks['code_quality'] = [
-            'name' => 'Code Quality Suite (Pint, PHPStan, Tests, Composer)',
+            'name' => 'Code Quality Suite (Pint, PHPStan, Tests, Composer, Isolated)',
             'status' => $verifyResult['status'] === 'passed' ? 'passed' : 'failed',
-            'message' => $verifyResult['status'] === 'passed' ? 'All quality and test checks passed.' : 'Quality checks failed. Run php artisan pkg:check for details.',
+            'message' => $verifyResult['status'] === 'passed' ? 'All quality, tests, and isolated phantom dependency checks passed.' : 'Quality checks failed. Run php artisan pkg:check for details.',
         ];
 
         // 5. README Standard Compliance (ReadmeValidator)

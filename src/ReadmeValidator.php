@@ -52,18 +52,20 @@ class ReadmeValidator
         if ($checks['file_exists']['status'] === 'passed') {
             $content = (string) file_get_contents($readmePath);
 
-            // 2. Centered Hero Title Check
-            if (preg_match('/<h1\s+align=["\']center["\']>/i', $content)) {
+            // 2. Hero Title Check (Centered HTML or standard Markdown #)
+            $hasCenteredHero = preg_match('/<h1\s+align=["\']center["\']>/i', $content) === 1;
+            $hasMarkdownHero = preg_match('/^#\s+[^\r\n]+/m', $content) === 1;
+            if ($hasCenteredHero || $hasMarkdownHero) {
                 $checks['hero_header'] = [
-                    'name' => 'Centered Hero Header (h1 align="center")',
+                    'name' => 'Hero Header (Centered HTML or Markdown #)',
                     'status' => 'passed',
-                    'message' => 'Hero header uses cross-platform HTML container.',
+                    'message' => $hasCenteredHero ? 'Hero header uses cross-platform HTML container.' : 'Hero header uses standard Markdown # heading.',
                 ];
             } else {
                 $checks['hero_header'] = [
-                    'name' => 'Centered Hero Header (h1 align="center")',
+                    'name' => 'Hero Header (Centered HTML or Markdown #)',
                     'status' => 'failed',
-                    'message' => 'Missing <h1 align="center"> tag for cross-platform alignment.',
+                    'message' => 'Missing hero header (requires <h1 align="center"> or Markdown # Heading).',
                 ];
             }
 
@@ -82,18 +84,20 @@ class ReadmeValidator
                 ];
             }
 
-            // 4. Badges formatting & Double Pipe Rule
-            if (str_contains($content, '||')) {
+            // 4. Badges formatting & Double Pipe Rule (excluding code blocks & inline code)
+            $contentWithoutCode = preg_replace('/```[\s\S]*?```/', '', $content) ?? $content;
+            $contentWithoutCode = preg_replace('/`[^`\r\n]*`/', '', $contentWithoutCode) ?? $contentWithoutCode;
+            if (str_contains($contentWithoutCode, '||')) {
                 $checks['badge_syntax'] = [
                     'name' => 'Badge Syntax & Formatting',
                     'status' => 'failed',
-                    'message' => 'Found raw double pipes "||" in text/badges. Use single pipe "|" or comma list.',
+                    'message' => 'Found raw double pipes "||" in text/badges outside code blocks. Use single pipe "|" or comma list.',
                 ];
             } else {
                 $checks['badge_syntax'] = [
                     'name' => 'Badge Syntax & Formatting',
                     'status' => 'passed',
-                    'message' => 'Clean badge and prose syntax (no double pipes).',
+                    'message' => 'Clean badge and prose syntax (no double pipes outside code blocks).',
                 ];
             }
 

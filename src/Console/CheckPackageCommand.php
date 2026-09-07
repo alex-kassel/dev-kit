@@ -19,10 +19,13 @@ class CheckPackageCommand extends Command
         {package? : Composer package name (e.g. alex-kassel/history-engine)}
         {--all : Verify all discovered local packages in workspace}
         {--fix : Automatically fix code style issues with Pint}
-        {--only= : Comma-separated list of checks to run (composer,pint,phpstan,tests)}
+        {--only= : Comma-separated list of checks to run (composer,pint,phpstan,tests,isolated)}
+        {--isolated : Verify against phantom dependencies and undeclared packages}
+        {--parallel : Run workspace package matrix checks concurrently}
+        {--no-parallel : Run workspace checks sequentially}
         {--json : Emit a machine-readable result}';
 
-    protected $description = 'Run full quality verification suite (Composer, Pint, PHPStan, Tests)';
+    protected $description = 'Run full quality verification suite (Composer, Pint, PHPStan, Tests, Isolated)';
 
     public function handle(PackageVerifier $verifier, PackageInventory $inventory, OrganizationResolver $orgResolver): int
     {
@@ -31,13 +34,16 @@ class CheckPackageCommand extends Command
         $all = (bool) $this->option('all');
         $fix = (bool) $this->option('fix');
         $isJson = (bool) $this->option('json');
+        $isolated = (bool) $this->option('isolated');
+        $noParallel = (bool) $this->option('no-parallel');
+        $parallel = ! $noParallel;
         $onlyOption = $this->option('only');
         $only = is_string($onlyOption) && $onlyOption !== '' ? explode(',', $onlyOption) : null;
 
         $root = $this->laravel->basePath();
 
         if ($all) {
-            $result = $verifier->verifyAll($root, $fix, $only);
+            $result = $verifier->verifyAll($root, $fix, $only, $parallel, $isolated);
             if ($isJson) {
                 $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
             } else {
@@ -82,7 +88,7 @@ class CheckPackageCommand extends Command
         }
 
         try {
-            $result = $verifier->verify($root, $package, $fix, $only);
+            $result = $verifier->verify($root, $package, $fix, $only, $isolated);
         } catch (RuntimeException $exception) {
             if ($isJson) {
                 $this->line(json_encode([
@@ -175,11 +181,12 @@ class CheckPackageCommand extends Command
                 $fmt('pint'),
                 $fmt('phpstan'),
                 $fmt('tests'),
+                $fmt('isolated'),
                 $item['status'] === 'passed' ? '<fg=green>PASS</>' : '<fg=red>FAIL</>',
             ];
         }
 
-        $this->table(['Package', 'Composer', 'Pint', 'PHPStan', 'Tests', 'Status'], $rows);
+        $this->table(['Package', 'Composer', 'Pint', 'PHPStan', 'Tests', 'Isolated', 'Status'], $rows);
 
         $this->newLine();
         if ($result['status'] === 'passed') {

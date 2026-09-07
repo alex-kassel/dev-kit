@@ -98,11 +98,20 @@ class OrganizationResolverTest extends TestCase
         // Already qualified
         $this->assertSame('acme/foo', $resolver->resolvePackageName($this->workspace, 'acme/foo'));
 
-        // Unqualified without existing vendors defaults to alex-kassel
-        $this->assertSame('alex-kassel/dev-kit', $resolver->resolvePackageName($this->workspace, 'dev-kit'));
-
         // Unqualified with CLI org
         $this->assertSame('my-org/core', $resolver->resolvePackageName($this->workspace, 'core', 'my-org'));
+
+        // Unqualified with configured org
+        $this->assertSame('custom-vendor/widget', $resolver->resolvePackageName($this->workspace, 'widget', null, ['custom-vendor']));
+    }
+
+    public function test_throws_exception_when_unqualified_package_cannot_resolve_vendor(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage("Unable to determine vendor organization for unqualified package 'dev-kit'");
+
+        $resolver = new OrganizationResolver;
+        $resolver->resolvePackageName($this->workspace, 'dev-kit');
     }
 
     private function deleteRecursive(string $dir): void

@@ -9,11 +9,15 @@ use Symfony\Component\Process\Process;
 
 class PackageVerifier
 {
+    public function __construct(
+        private readonly PhantomDependencyDetector $phantomDetector = new PhantomDependencyDetector
+    ) {}
+
     /**
      * @param  list<string>|null  $only
      * @return array{package: string, path: string, status: string, summary: array{passed: int, failed: int, skipped: int, not_configured: int}, checks: array<string, array{name: string, status: string, exit_code: int, command: string, output: string, duration_ms: int}>}
      */
-    public function verify(string $root, string $package, bool $fix = false, ?array $only = null): array
+    public function verify(string $root, string $package, bool $fix = false, ?array $only = null, bool $isolated = false): array
     {
         $root = realpath($root);
         if ($root === false) {
@@ -45,6 +49,11 @@ class PackageVerifier
         // 4. Automated Tests
         if ($runCheck('tests')) {
             $checks['tests'] = $this->checkTests($root, $packagePath, $relPackagePath);
+        }
+
+        // 5. Isolated Dependencies (Phantom Check)
+        if ($runCheck('isolated') || $isolated) {
+            $checks['isolated'] = $this->checkIsolated($root, $packagePath);
         }
 
         $passedCount = 0;
@@ -82,8 +91,14 @@ class PackageVerifier
      * @param  list<string>|null  $only
      * @return array{schema_version: int, status: string, total: int, passed: int, failed: int, results: list<array<string, mixed>>}
      */
-    public function verifyAll(string $root, bool $fix = false, ?array $only = null): array
-    {
+    public function verifyAll(
+        string $root,
+        bool $fix = false,
+        ?array $only = null,
+        bool $parallel = true,
+        bool $isolated = false,
+        int $concurrency = 4
+    ): array {
         $packageRoot = rtrim($root, '/\\').'/packages';
         if (! is_dir($packageRoot)) {
             return [
@@ -119,14 +134,88 @@ class PackageVerifier
         $passedTotal = 0;
         $failedTotal = 0;
 
-        foreach ($packages as $pkg) {
-            $result = $this->verify($root, $pkg, $fix, $only);
-            if ($result['status'] === 'passed') {
-                $passedTotal++;
-            } else {
-                $failedTotal++;
+        if ($parallel && file_exists($root.DIRECTORY_SEPARATOR.'artisan') && count($packages) > 1) {
+            $pool = [];
+            $queue = $packages;
+            $packageResults = [];
+
+            while (count($packageResults) < count($packages)) {
+                while (count($pool) < $concurrency && count($queue) > 0) {
+                    $pkg = array_shift($queue);
+                    if ($pkg === null) {
+                        break;
+                    }
+                    $cmd = [PHP_BINARY, 'artisan', 'pkg:check', $pkg, '--json'];
+                    if ($fix) {
+                        $cmd[] = '--fix';
+                    }
+                    if ($only !== null) {
+                        $cmd[] = '--only='.implode(',', $only);
+                    }
+                    if ($isolated) {
+                        $cmd[] = '--isolated';
+                    }
+
+                    $process = new Process($cmd, $root);
+                    $process->setTimeout(300.0);
+                    $process->start();
+                    $pool[$pkg] = $process;
+                }
+
+                foreach ($pool as $pkg => $process) {
+                    if (! $process->isRunning()) {
+                        unset($pool[$pkg]);
+                        $output = trim($process->getOutput());
+                        try {
+                            /** @var array<string, mixed> $decoded */
+                            $decoded = json_decode($output, true, 512, JSON_THROW_ON_ERROR);
+                            $packageResults[$pkg] = $decoded;
+                        } catch (\JsonException) {
+                            $packageResults[$pkg] = [
+                                'package' => $pkg,
+                                'path' => 'packages/'.$pkg,
+                                'status' => 'failed',
+                                'summary' => ['passed' => 0, 'failed' => 1, 'skipped' => 0, 'not_configured' => 0],
+                                'checks' => [
+                                    'process' => [
+                                        'name' => 'Package Verification Process',
+                                        'status' => 'failed',
+                                        'exit_code' => $process->getExitCode() ?? 1,
+                                        'command' => $process->getCommandLine(),
+                                        'output' => $process->getErrorOutput() ?: $process->getOutput(),
+                                        'duration_ms' => 0,
+                                    ],
+                                ],
+                            ];
+                        }
+                    }
+                }
+
+                if (count($pool) > 0) {
+                    usleep(25000);
+                }
             }
-            $results[] = $result;
+
+            foreach ($packages as $pkg) {
+                if (isset($packageResults[$pkg])) {
+                    $results[] = $packageResults[$pkg];
+                    if (($packageResults[$pkg]['status'] ?? '') === 'passed') {
+                        $passedTotal++;
+                    } else {
+                        $failedTotal++;
+                    }
+                }
+            }
+        } else {
+            foreach ($packages as $pkg) {
+                $result = $this->verify($root, $pkg, $fix, $only, $isolated);
+                if ($result['status'] === 'passed') {
+                    $passedTotal++;
+                } else {
+                    $failedTotal++;
+                }
+                $results[] = $result;
+            }
         }
 
         return [
@@ -315,6 +404,23 @@ class PackageVerifier
             'exit_code' => $exitCode,
             'command' => implode(' ', array_map('escapeshellarg', $command)),
             'output' => $output,
+            'duration_ms' => $durationMs,
+        ];
+    }
+
+    /** @return array{name: string, status: string, exit_code: int, command: string, output: string, duration_ms: int} */
+    private function checkIsolated(string $root, string $packagePath): array
+    {
+        $startTime = microtime(true);
+        $result = $this->phantomDetector->detect($root, $packagePath);
+        $durationMs = (int) round((microtime(true) - $startTime) * 1000);
+
+        return [
+            'name' => 'Isolated Dependencies (Phantom Check)',
+            'status' => $result['status'],
+            'exit_code' => $result['status'] === 'passed' ? 0 : 1,
+            'command' => 'phantom-dependency-detector',
+            'output' => $result['message'],
             'duration_ms' => $durationMs,
         ];
     }

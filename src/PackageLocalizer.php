@@ -109,26 +109,17 @@ class PackageLocalizer
      */
     private function assertSemverSatisfied(string $root, string $name, array $checkout, string $constraint, string $from): void
     {
-        $packagePath = rtrim($root, '/\\').'/packages/'.$name;
-        $versions = $this->detectCandidateVersions($packagePath, (string) ($checkout['branch'] ?? ''));
-
-        $alternatives = preg_split('/\s*\|\|\s*/', $constraint) ?: [];
-        $hasSemverConstraints = false;
-        foreach ($alternatives as $alt) {
-            $trimmed = trim($alt);
-            if (! str_starts_with($trimmed, 'dev-')) {
-                $hasSemverConstraints = true;
-                break;
-            }
-        }
-
-        if (! $hasSemverConstraints) {
+        $trimmedConstraint = trim($constraint);
+        if ($trimmedConstraint === '*' || str_contains($trimmedConstraint, '@dev')) {
             return;
         }
 
+        $packagePath = rtrim($root, '/\\').'/packages/'.$name;
+        $versions = $this->detectCandidateVersions($packagePath, (string) ($checkout['branch'] ?? ''));
+
         foreach ($versions as $version) {
             try {
-                if (Semver::satisfies($version, $constraint)) {
+                if (Semver::satisfies($version, $trimmedConstraint)) {
                     return;
                 }
             } catch (\UnexpectedValueException) {
