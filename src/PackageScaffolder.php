@@ -31,12 +31,13 @@ class PackageScaffolder
         }
 
         $rawPackage = trim($package, '/\\ ');
-        $parts = explode('/', str_replace('\\', '/', $rawPackage));
+        $normalizedPackage = str_replace('\\', '/', $rawPackage);
 
-        if (count($parts) !== 2 || $parts[0] === '' || $parts[1] === '') {
+        if (! preg_match('~^[a-z0-9]+(?:[_.-][a-z0-9]+)*/[a-z0-9]+(?:[_.-][a-z0-9]+)*$~Di', $normalizedPackage)) {
             throw new RuntimeException("Invalid package identifier '{$rawPackage}'. Must be in 'vendor/package-name' format.");
         }
 
+        $parts = explode('/', $normalizedPackage);
         $vendor = strtolower($parts[0]);
         $packageName = strtolower($parts[1]);
 

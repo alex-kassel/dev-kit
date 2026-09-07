@@ -66,7 +66,7 @@ class PackageCloner
                     $httpsFallback = "https://{$host}/{$vendor}/{$repo}.git";
 
                     if (is_dir($staging)) {
-                        $this->deleteDirectory($staging);
+                        FileIO::removeDirectory($staging);
                     }
 
                     $cloneUrl = $httpsFallback;
@@ -194,32 +194,31 @@ class PackageCloner
 
     private function assertContained(string $root, string $path): void
     {
-        $normalizedRoot = str_replace('\\', '/', $root);
+        $normalizedRoot = rtrim(str_replace('\\', '/', $root), '/');
         $normalizedPath = str_replace('\\', '/', $path);
-        if (! str_starts_with($normalizedPath, $normalizedRoot.'/') && $normalizedPath !== $normalizedRoot) {
-            throw new RuntimeException('Path traversal detected: '.$path);
-        }
-    }
 
-    private function deleteDirectory(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-
-        $items = scandir($dir) ?: [];
-        foreach ($items as $item) {
-            if ($item === '.' || $item === '..') {
+        $parts = [];
+        foreach (explode('/', $normalizedPath) as $segment) {
+            if ($segment === '' || $segment === '.') {
                 continue;
             }
-            $path = $dir.DIRECTORY_SEPARATOR.$item;
-            if (is_dir($path)) {
-                $this->deleteDirectory($path);
+            if ($segment === '..') {
+                if (empty($parts)) {
+                    throw new RuntimeException('Path traversal detected: '.$path);
+                }
+                array_pop($parts);
             } else {
-                @unlink($path);
+                $parts[] = $segment;
             }
         }
+        $resolvedPath = (str_starts_with($normalizedPath, '/') ? '/' : '').implode('/', $parts);
 
-        @rmdir($dir);
+        $same = PHP_OS_FAMILY === 'Windows'
+            ? (strcasecmp($resolvedPath, $normalizedRoot) === 0 || str_starts_with(strtolower($resolvedPath), strtolower($normalizedRoot).'/'))
+            : ($resolvedPath === $normalizedRoot || str_starts_with($resolvedPath, $normalizedRoot.'/'));
+
+        if (! $same) {
+            throw new RuntimeException('Path traversal detected: '.$path);
+        }
     }
 }

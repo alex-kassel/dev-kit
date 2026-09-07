@@ -51,6 +51,14 @@ class PackageScaffolderTest extends TestCase
         $scaffolder->scaffold($this->root, 'single-name');
     }
 
+    public function test_scaffold_rejects_path_traversal_in_package_name(): void
+    {
+        $scaffolder = new PackageScaffolder;
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Must be in \'vendor/package-name\' format');
+        $scaffolder->scaffold($this->root, '../outside/pkg');
+    }
+
     public function test_dry_run_does_not_write_files_to_disk(): void
     {
         $scaffolder = new PackageScaffolder;
