@@ -8,6 +8,8 @@ use AlexKassel\DevKit\ReadmeValidator;
 use Illuminate\Console\Command;
 use RuntimeException;
 
+use function Termwind\render;
+
 class ReadmePackageCommand extends Command
 {
     protected $signature = 'pkg:readme
@@ -43,28 +45,47 @@ class ReadmePackageCommand extends Command
             return $result['status'] === 'passed' ? self::SUCCESS : self::FAILURE;
         }
 
-        $this->newLine();
-        $this->line('============================================================');
-        $this->line(" 📄 Package README Verification: {$result['path']}");
-        $this->line('============================================================');
-        $this->newLine();
+        render(<<<HTML
+            <div class="my-1">
+                <span class="px-1 bg-blue-600 text-white font-bold">README VERIFICATION</span>
+                <span class="ml-1 text-gray-400">{$result['path']}</span>
+            </div>
+        HTML);
 
         foreach ($result['checks'] as $check) {
-            $badge = $check['status'] === 'passed' ? ' <info>✔ PASS</info>' : ' <error>✖ FAIL</error>';
-            $this->line(sprintf('%-8s | %-38s', $badge, $check['name']));
+            $badge = $check['status'] === 'passed'
+                ? '<span class="px-1 bg-green-600 text-white font-bold">PASS</span>'
+                : '<span class="px-1 bg-red-600 text-white font-bold">FAIL</span>';
+
+            render(<<<HTML
+                <div class="flex space-x-1">
+                    <span>{$badge}</span>
+                    <span class="font-bold text-gray-200">{$check['name']}</span>
+                </div>
+            HTML);
+
             if ($check['status'] === 'failed') {
-                $this->line("         └─ {$check['message']}");
+                render(<<<HTML
+                    <div class="ml-4 text-red-400 text-xs">
+                        └─ {$check['message']}
+                    </div>
+                HTML);
             }
         }
 
-        $this->newLine();
-        $this->line('------------------------------------------------------------');
         if ($result['status'] === 'passed') {
-            $this->info('✔ README VERIFICATION PASSED: Fully compliant with standard.');
+            render(<<<'HTML'
+                <div class="mt-1 p-1 bg-green-900 text-green-100 font-bold">
+                    ✔ README VERIFICATION PASSED: Fully compliant with standard.
+                </div>
+            HTML);
         } else {
-            $this->error("✖ README VERIFICATION FAILED: {$result['summary']['failed']} issue(s) detected.");
+            render(<<<HTML
+                <div class="mt-1 p-1 bg-red-900 text-white font-bold">
+                    ✖ README VERIFICATION FAILED: {$result['summary']['failed']} issue(s) detected.
+                </div>
+            HTML);
         }
-        $this->line('============================================================');
 
         return $result['status'] === 'passed' ? self::SUCCESS : self::FAILURE;
     }

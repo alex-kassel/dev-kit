@@ -11,6 +11,7 @@ use RuntimeException;
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\select;
 use function Laravel\Prompts\text;
+use function Termwind\render;
 
 class MakePackageCommand extends Command
 {
@@ -112,27 +113,32 @@ class MakePackageCommand extends Command
      */
     private function renderSummary(array $result): void
     {
-        $this->line('============================================================');
-        $this->line($result['dry_run']
-            ? " 🔍 [DRY-RUN] Package Scaffolding: {$result['path']}"
-            : " 📦 Package Scaffolding Created: {$result['path']}");
-        $this->line('============================================================');
-        $this->newLine();
+        $header = $result['dry_run']
+            ? '<span class="px-1 bg-yellow-500 text-black font-bold">DRY-RUN SCAFFOLD</span>'
+            : '<span class="px-1 bg-blue-600 text-white font-bold">PACKAGE SCAFFOLDED</span>';
 
-        $this->line("Package:    {$result['package']}");
-        $this->line("Archetype:  {$result['archetype']}");
-        $this->line("Git:        {$result['git']}");
-        $this->line("Root Sync:  {$result['root_registration']}");
-        $this->line("Files:      {$result['files_count']} generated");
-        $this->newLine();
+        render(<<<HTML
+            <div class="my-1">
+                <div>{$header} <span class="text-gray-400">{$result['path']}</span></div>
+                <div class="mt-1 flex flex-col text-gray-300">
+                    <div><span class="text-gray-500 font-bold">Package:</span> {$result['package']}</div>
+                    <div><span class="text-gray-500 font-bold">Archetype:</span> {$result['archetype']}</div>
+                    <div><span class="text-gray-500 font-bold">Git:</span> {$result['git']}</div>
+                    <div><span class="text-gray-500 font-bold">Root Registration:</span> {$result['root_registration']}</div>
+                    <div><span class="text-gray-500 font-bold">Generated Files:</span> {$result['files_count']}</div>
+                </div>
+            </div>
+        HTML);
 
-        $this->line('Generated files:');
-        foreach ($result['files'] as $file) {
-            $this->line(" + {$file}");
-        }
+        $fileItems = implode('', array_map(fn (string $f): string => "<div class=\"text-gray-400\">+ {$f}</div>", $result['files']));
 
-        $this->newLine();
-        $this->info("✔ Package {$result['package']} scaffolded successfully.");
-        $this->line('============================================================');
+        render(<<<HTML
+            <div class="my-1 pl-2">
+                {$fileItems}
+            </div>
+            <div class="mt-1 p-1 bg-green-900 text-green-100 font-bold">
+                ✔ Package {$result['package']} scaffolded successfully.
+            </div>
+        HTML);
     }
 }

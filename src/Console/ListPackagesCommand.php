@@ -11,6 +11,8 @@ use Illuminate\Console\Command;
 use Illuminate\Contracts\Config\Repository;
 use RuntimeException;
 
+use function Termwind\render;
+
 class ListPackagesCommand extends Command
 {
     protected $signature = 'pkg:list {--json : Emit a machine-readable result}';
@@ -63,15 +65,49 @@ class ListPackagesCommand extends Command
                 'packages' => $packages,
             ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         } elseif ($packages === []) {
-            $this->info('No local packages found.');
+            render('<div class="my-1 text-gray-500 italic">No local packages found in workspace.</div>');
         } else {
-            $this->table(['Package', 'Path', 'Owned', 'Composer', 'Installed version'], array_map(fn (array $package): array => [
-                $package['name'],
-                $package['path'],
-                $package['owned'] ? 'yes' : 'no',
-                $package['linked'] ? 'local linked' : ($package['installed'] ? 'installed elsewhere' : 'not installed'),
-                $package['installed_version'] ?? '-',
-            ], $packages));
+            $rows = '';
+            foreach ($packages as $pkg) {
+                $statusBadge = $pkg['linked']
+                    ? '<span class="text-green-400 font-bold">local linked</span>'
+                    : ($pkg['installed'] ? '<span class="text-yellow-400">installed elsewhere</span>' : '<span class="text-gray-500">not installed</span>');
+                $ownedBadge = $pkg['owned'] ? '<span class="text-green-500">yes</span>' : '<span class="text-gray-500">no</span>';
+                $version = $pkg['installed_version'] ?? '-';
+
+                $rows .= "<tr>
+                    <td class=\"font-bold text-gray-200\">{$pkg['name']}</td>
+                    <td class=\"text-gray-400\">{$pkg['path']}</td>
+                    <td>{$ownedBadge}</td>
+                    <td>{$statusBadge}</td>
+                    <td class=\"text-gray-400\">{$version}</td>
+                </tr>";
+            }
+
+            $total = count($packages);
+
+            render(<<<HTML
+                <div class="my-1">
+                    <div class="mb-1">
+                        <span class="px-1 bg-blue-600 text-white font-bold">LOCAL PACKAGES</span>
+                        <span class="ml-1 text-gray-400">Total: {$total}</span>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="font-bold text-gray-300">Package</th>
+                                <th class="font-bold text-gray-300">Path</th>
+                                <th class="font-bold text-gray-300">Owned</th>
+                                <th class="font-bold text-gray-300">Composer</th>
+                                <th class="font-bold text-gray-300">Installed Version</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {$rows}
+                        </tbody>
+                    </table>
+                </div>
+            HTML);
         }
 
         return self::SUCCESS;

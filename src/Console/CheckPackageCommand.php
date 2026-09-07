@@ -12,6 +12,7 @@ use Illuminate\Contracts\Config\Repository;
 use RuntimeException;
 
 use function Laravel\Prompts\select;
+use function Termwind\render;
 
 class CheckPackageCommand extends Command
 {
@@ -127,44 +128,64 @@ class CheckPackageCommand extends Command
      */
     private function renderSingleResult(array $result): void
     {
-        $this->line('============================================================');
-        $this->line(' 📦 Package Verification: '.$result['path']);
-        $this->line('============================================================');
-        $this->newLine();
+        render(<<<HTML
+            <div class="my-1">
+                <span class="px-1 bg-blue-600 text-white font-bold">PACKAGE VERIFICATION</span>
+                <span class="ml-1 text-gray-400">{$result['path']}</span>
+            </div>
+        HTML);
 
         /** @var array<string, array{name: string, status: string, exit_code: int, command: string, output: string, duration_ms: int}> $checks */
         $checks = $result['checks'];
 
         foreach ($checks as $check) {
             $badge = match ($check['status']) {
-                'passed' => '<fg=green>✔ PASS</>',
-                'failed' => '<fg=red>✖ FAIL</>',
-                'skipped' => '<fg=yellow>- SKIP</>',
-                'not_configured' => '<fg=gray>○ NONE</>',
-                default => '<fg=white>? UNK</>',
+                'passed' => '<span class="px-1 bg-green-600 text-white font-bold">PASS</span>',
+                'failed' => '<span class="px-1 bg-red-600 text-white font-bold">FAIL</span>',
+                'skipped' => '<span class="px-1 bg-yellow-600 text-black font-bold">SKIP</span>',
+                'not_configured' => '<span class="px-1 bg-gray-600 text-white font-bold">NONE</span>',
+                default => '<span class="px-1 bg-zinc-600 text-white font-bold">UNK</span>',
             };
 
-            $this->line(sprintf(' %-15s | %-30s (%d ms)', $badge, $check['name'], $check['duration_ms']));
+            render(<<<HTML
+                <div class="flex space-x-1">
+                    <span>{$badge}</span>
+                    <span class="font-bold text-gray-200">{$check['name']}</span>
+                    <span class="text-gray-500 text-xs">({$check['duration_ms']} ms)</span>
+                </div>
+            HTML);
+
             if ($check['status'] === 'failed' && ! empty($check['output'])) {
-                $this->line('------------------------------------------------------------');
-                $this->line($check['output']);
-                $this->line('------------------------------------------------------------');
+                render(<<<HTML
+                    <div class="my-1 p-1 bg-red-950 text-red-200 text-xs">
+                        <pre>{$check['output']}</pre>
+                    </div>
+                HTML);
             }
         }
 
-        $this->newLine();
-        $this->line('------------------------------------------------------------');
         /** @var array{passed: int, failed: int} $summary */
         $summary = $result['summary'];
 
         if ($result['status'] === 'passed') {
-            $this->info("✔ VERIFICATION PASSED: All {$summary['passed']} active check(s) passed.");
+            render(<<<HTML
+                <div class="mt-1 p-1 bg-green-900 text-green-100 font-bold">
+                    ✔ VERIFICATION PASSED: All {$summary['passed']} active check(s) passed.
+                </div>
+            HTML);
         } elseif ($result['status'] === 'incomplete') {
-            $this->error('VERIFICATION INCOMPLETE: required tools or configuration are missing.');
+            render(<<<'HTML'
+                <div class="mt-1 p-1 bg-yellow-900 text-yellow-100 font-bold">
+                    ⚠ VERIFICATION INCOMPLETE: Required tools or configuration are missing.
+                </div>
+            HTML);
         } else {
-            $this->error("✖ VERIFICATION FAILED: {$summary['failed']} check(s) failed.");
+            render(<<<HTML
+                <div class="mt-1 p-1 bg-red-900 text-white font-bold">
+                    ✖ VERIFICATION FAILED: {$summary['failed']} check(s) failed.
+                </div>
+            HTML);
         }
-        $this->line('============================================================');
     }
 
     /**

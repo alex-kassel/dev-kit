@@ -8,6 +8,8 @@ use AlexKassel\DevKit\ReleaseChecker;
 use Illuminate\Console\Command;
 use RuntimeException;
 
+use function Termwind\render;
+
 class ReleaseCheckPackageCommand extends Command
 {
     protected $signature = 'pkg:release-check
@@ -47,41 +49,59 @@ class ReleaseCheckPackageCommand extends Command
             };
         }
 
-        $this->newLine();
-        $this->line('============================================================');
-        $this->line(" 🚀 Release-Gate Pre-Flight: {$result['path']}");
-        $this->line('============================================================');
-        $this->newLine();
-
-        $this->line("Latest Git Tag: {$result['latest_tag']}");
-        $this->newLine();
+        render(<<<HTML
+            <div class="my-1">
+                <span class="px-1 bg-purple-600 text-white font-bold">RELEASE-GATE PRE-FLIGHT</span>
+                <span class="ml-1 text-gray-400">{$result['path']}</span>
+                <span class="ml-2 text-gray-500 text-xs">Tag: {$result['latest_tag']}</span>
+            </div>
+        HTML);
 
         foreach ($result['checks'] as $check) {
             $badge = match ($check['status']) {
-                'passed' => ' <info>✔ PASS</info>',
-                'failed' => ' <error>✖ FAIL</error>',
-                'action_required' => ' <comment>▲ WARN</comment>',
-                'not_configured' => ' <fg=gray>○ NONE</fg=gray>',
-                'skipped' => ' <fg=gray>- SKIP</fg=gray>',
-                default => ' ? UNK ',
+                'passed' => '<span class="px-1 bg-green-600 text-white font-bold">PASS</span>',
+                'failed' => '<span class="px-1 bg-red-600 text-white font-bold">FAIL</span>',
+                'action_required' => '<span class="px-1 bg-yellow-500 text-black font-bold">WARN</span>',
+                'not_configured' => '<span class="px-1 bg-gray-600 text-white font-bold">NONE</span>',
+                'skipped' => '<span class="px-1 bg-gray-600 text-white font-bold">SKIP</span>',
+                default => '<span class="px-1 bg-zinc-600 text-white font-bold">UNK</span>',
             };
 
-            $this->line(sprintf('%-8s | %-38s', $badge, $check['name']));
+            render(<<<HTML
+                <div class="flex space-x-1">
+                    <span>{$badge}</span>
+                    <span class="font-bold text-gray-200">{$check['name']}</span>
+                </div>
+            HTML);
+
             if ($check['status'] !== 'passed') {
-                $this->line("         └─ {$check['message']}");
+                render(<<<HTML
+                    <div class="ml-4 text-zinc-400 text-xs">
+                        └─ {$check['message']}
+                    </div>
+                HTML);
             }
         }
 
-        $this->newLine();
-        $this->line('------------------------------------------------------------');
         if ($result['verdict'] === 'READY') {
-            $this->info('✔ RELEASE GATE: READY TO PUBLISH');
+            render(<<<'HTML'
+                <div class="mt-1 p-1 bg-green-900 text-green-100 font-bold">
+                    ✔ RELEASE GATE: READY TO PUBLISH
+                </div>
+            HTML);
         } elseif ($result['verdict'] === 'ACTION_REQUIRED') {
-            $this->warn('▲ RELEASE GATE: ACTION / DECISION REQUIRED');
+            render(<<<'HTML'
+                <div class="mt-1 p-1 bg-yellow-900 text-yellow-100 font-bold">
+                    ▲ RELEASE GATE: ACTION / DECISION REQUIRED
+                </div>
+            HTML);
         } else {
-            $this->error('✖ RELEASE GATE: BLOCKED BY FAILURES');
+            render(<<<'HTML'
+                <div class="mt-1 p-1 bg-red-900 text-white font-bold">
+                    ✖ RELEASE GATE: BLOCKED BY FAILURES
+                </div>
+            HTML);
         }
-        $this->line('============================================================');
 
         return match ($result['verdict']) {
             'READY' => self::SUCCESS,
