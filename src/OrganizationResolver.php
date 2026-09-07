@@ -114,6 +114,35 @@ class OrganizationResolver
     }
 
     /**
+     * Resolves a package name, prepending vendor if omitted (e.g. 'dev-kit' -> 'alex-kassel/dev-kit').
+     *
+     * @param  string  $root  Root path of the host workspace
+     * @param  string  $packageName  Package name (e.g. 'dev-kit' or 'alex-kassel/dev-kit')
+     * @param  string|array<int|string, mixed>|null  $cliOrganizations  Optional CLI organizations
+     * @param  array<int|string, mixed>|null  $configuredOrganizations  Optional config organizations
+     */
+    public function resolvePackageName(
+        string $root,
+        string $packageName,
+        string|array|null $cliOrganizations = null,
+        ?array $configuredOrganizations = null
+    ): string {
+        $trimmed = trim($packageName, '/\\ ');
+        if (str_contains($trimmed, '/')) {
+            return $trimmed;
+        }
+
+        if ($trimmed === '') {
+            return '';
+        }
+
+        $orgs = $this->resolve($root, null, $cliOrganizations, $configuredOrganizations);
+        $vendor = $orgs[0] ?? 'alex-kassel';
+
+        return $vendor.'/'.$trimmed;
+    }
+
+    /**
      * @return list<string>
      */
     private function splitCommaSeparated(string $input): array

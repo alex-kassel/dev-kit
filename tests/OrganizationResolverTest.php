@@ -91,6 +91,20 @@ class OrganizationResolverTest extends TestCase
         ], $orgs);
     }
 
+    public function test_resolves_package_name_with_or_without_vendor(): void
+    {
+        $resolver = new OrganizationResolver;
+
+        // Already qualified
+        $this->assertSame('acme/foo', $resolver->resolvePackageName($this->workspace, 'acme/foo'));
+
+        // Unqualified without existing vendors defaults to alex-kassel
+        $this->assertSame('alex-kassel/dev-kit', $resolver->resolvePackageName($this->workspace, 'dev-kit'));
+
+        // Unqualified with CLI org
+        $this->assertSame('my-org/core', $resolver->resolvePackageName($this->workspace, 'core', 'my-org'));
+    }
+
     private function deleteRecursive(string $dir): void
     {
         if (! is_dir($dir)) {

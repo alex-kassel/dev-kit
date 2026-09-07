@@ -10,16 +10,26 @@ use RuntimeException;
 
 class InstallCommand extends Command
 {
-    protected $signature = 'pkg:install {--dry-run : Preview changes without writing files} {--force : Overwrite existing agent configuration and skill files} {--json : Emit a machine-readable result}';
+    protected $signature = 'pkg:install
+        {--local : Also clone dev-kit into packages/ for local development}
+        {--branch=main : Git branch to clone when --local is used}
+        {--dry-run : Preview changes without writing files}
+        {--force : Overwrite existing agent configuration and skill files}
+        {--json : Emit a machine-readable result}';
 
     protected $description = 'Prepare local package directories, Composer repository, scripts and agent skills';
 
     public function handle(WorkspaceInstaller $installer): int
     {
+        $isLocal = (bool) $this->option('local');
+        $rawBranch = $this->option('branch');
+        $branch = is_string($rawBranch) && $rawBranch !== '' ? $rawBranch : 'main';
+        $isDryRun = (bool) $this->option('dry-run');
+
         try {
             $result = $installer->install(
                 $this->laravel->basePath(),
-                (bool) $this->option('dry-run'),
+                $isDryRun,
                 (bool) $this->option('force')
             );
         } catch (RuntimeException $exception) {
@@ -44,6 +54,14 @@ class InstallCommand extends Command
                 'planned' => 'Planned changes: '.implode(', ', $result['files']),
                 default => 'Workspace prepared: '.implode(', ', $result['files']),
             });
+        }
+
+        if ($isLocal && ! $isDryRun) {
+            $this->call('pkg:clone', [
+                'package' => 'alex-kassel/dev-kit',
+                '--branch' => $branch,
+                '--update' => true,
+            ]);
         }
 
         return self::SUCCESS;

@@ -5,6 +5,17 @@ All notable changes to `alex-kassel/dev-kit` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.2] - 2026-09-07
+
+### Added
+- `pkg:install --local`: single-step host workspace setup and immediate local cloning of `dev-kit`.
+- `pkg:clone`: auto-sync with root `composer.json` upon cloning, with optional `--no-sync` and `--update` flags.
+- `pkg:clone`: unqualified package name resolution (e.g. `dev-kit` automatically resolves to `alex-kassel/dev-kit`).
+- Comprehensive `README.md` documentation for package cloning, local development workflow, and AI agent integration.
+
+### Fixed
+- GitHub Actions CI matrix dependency resolution for `prefer-lowest` across Laravel 11/12/13 and PHP 8.3/8.4.
+
 ## [0.0.1] - 2026-09-07
 
 ### Added

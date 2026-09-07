@@ -52,10 +52,16 @@ Require `alex-kassel/dev-kit` as a development dependency in your Laravel projec
 composer require alex-kassel/dev-kit --dev
 ```
 
-Initialize your workspace and install agent tooling:
+Initialize your workspace and install AI agent tooling:
 
 ```bash
 php artisan pkg:install
+```
+
+To set up a fresh environment and immediately localize `dev-kit` for package development:
+
+```bash
+php artisan pkg:install --local
 ```
 
 ---
@@ -65,14 +71,33 @@ php artisan pkg:install
 ### Workspace Preparation & Package Discovery
 
 ```bash
-# Initialize workspace repositories and agent skills
+# Initialize workspace path repositories and agent skills
 php artisan pkg:install
+
+# Initialize workspace and clone dev-kit into packages/
+php artisan pkg:install --local
 
 # List all local packages and their linking state
 php artisan pkg:list
 
 # Synchronize local packages into composer.json
 php artisan pkg:sync
+```
+
+### Ingesting & Localizing Packages (pkg:clone)
+
+```bash
+# Clone a package repository and automatically sync into workspace
+php artisan pkg:clone alex-kassel/my-package --branch=main
+
+# Support for unqualified package name (defaults to configured organization)
+php artisan pkg:clone dev-kit --branch=main
+
+# Clone and immediately link via composer update
+php artisan pkg:clone alex-kassel/my-package --branch=main --update
+
+# Recursively clone and localize owned dependencies across multiple organizations
+php artisan pkg:clone acme/billing --branch=main --recursive --org=acme,partner-org
 ```
 
 ### Scaffolding & Quality Assurance
@@ -97,6 +122,35 @@ php artisan pkg:readme alex-kassel/dev-kit
 # Run pre-flight checks before tagging a release
 php artisan pkg:release-check alex-kassel/dev-kit
 ```
+
+---
+
+## AI Agent Integration
+
+`dev-kit` automatically equips host repositories with standardized agent runbooks and modular skills:
+
+* `AGENTS.md`: Repository guidelines, core architectural invariants, and command indexes.
+* `.agents/skills/`: Procedural knowledge modules for autonomous agents (Antigravity, Cursor, Copilot):
+  - `package-scaffolding`: Deterministic package initialization.
+  - `package-verification`: Linting, PHPStan Level 8 analysis, and test suites.
+  - `package-readme`: Enterprise documentation standards.
+  - `package-audit`: 2-phase verification audits.
+  - `package-release`: Packagist release pipeline and SemVer tagging.
+
+---
+
+## Configuration
+
+Publish the configuration file to customize Git patterns and trusted organizations:
+
+```bash
+php artisan vendor:publish --tag=dev-kit-config
+```
+
+Options in `config/dev-kit.php`:
+* `organizations`: List of trusted vendor organizations for recursive localization.
+* `default_source_pattern`: Default Git URL template (e.g. `git@github.com:{vendor}/{package}.git`).
+* `sources`: Explicit repository URL overrides for specific packages.
 
 ---
 

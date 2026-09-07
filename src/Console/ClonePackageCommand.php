@@ -7,9 +7,11 @@ namespace AlexKassel\DevKit\Console;
 use AlexKassel\DevKit\OrganizationResolver;
 use AlexKassel\DevKit\PackageCloner;
 use AlexKassel\DevKit\PackageLocalizer;
+use AlexKassel\DevKit\PackageSynchronizer;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use RuntimeException;
+use Symfony\Component\Process\Process;
 
 class ClonePackageCommand extends Command
 {
@@ -18,17 +20,23 @@ class ClonePackageCommand extends Command
         {--branch= : Explicit branch to clone}
         {--recursive : Localize owned require dependencies with one explicit dev-* alternative}
         {--org= : Additional comma-separated trusted organization vendors}
+        {--no-sync : Do not automatically register cloned package in root composer.json}
+        {--update : Run composer update for the cloned package to establish symlink}
         {--json : Emit a machine-readable result}';
 
-    protected $description = 'Clone a package, optionally localizing owned dependencies, without Composer installation';
+    protected $description = 'Clone a package, optionally localizing owned dependencies, and synchronizing workspace';
 
-    public function handle(PackageCloner $cloner, PackageLocalizer $localizer, OrganizationResolver $resolver): int
-    {
+    public function handle(
+        PackageCloner $cloner,
+        PackageLocalizer $localizer,
+        OrganizationResolver $resolver,
+        PackageSynchronizer $synchronizer
+    ): int {
         /** @var ConfigRepository $config */
         $config = $this->laravel->make('config');
         $defaultPattern = (string) $config->get('dev-kit.default_source_pattern', '');
         $packageArg = $this->argument('package');
-        $packageName = is_string($packageArg) ? $packageArg : '';
+        $rawPackageName = is_string($packageArg) ? $packageArg : '';
         $branchOpt = $this->option('branch');
         $branch = is_string($branchOpt) ? $branchOpt : '';
         $sources = $config->get('dev-kit.sources', []);
@@ -37,6 +45,13 @@ class ClonePackageCommand extends Command
         $cliOrg = $this->option('org');
 
         $root = $this->laravel->basePath();
+        $packageName = $resolver->resolvePackageName(
+            $root,
+            $rawPackageName,
+            $cliOrg,
+            is_array($configuredOrgs) ? $configuredOrgs : []
+        );
+
         $organizations = $resolver->resolve(
             $root,
             $packageName,
@@ -46,6 +61,8 @@ class ClonePackageCommand extends Command
 
         $pattern = $defaultPattern !== '' ? $defaultPattern : null;
         $isJson = (bool) $this->option('json');
+        $noSync = (bool) $this->option('no-sync');
+        $shouldUpdate = (bool) $this->option('update');
 
         if ($this->option('recursive')) {
             try {
@@ -61,13 +78,17 @@ class ClonePackageCommand extends Command
                 return $this->handleError($exception, $isJson);
             }
 
+            if (! $noSync) {
+                $synchronizer->sync($root);
+            }
+
             if ($isJson) {
                 $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
             } else {
                 foreach ($result['packages'] as $package) {
                     $this->line($package['action'].': '.$package['name'].' ('.$package['branch'].')');
                 }
-                $this->line('Localization complete. Composer dependencies have not been installed.');
+                $this->line($noSync ? 'Localization complete.' : 'Localization complete. Workspace composer.json synchronized.');
             }
 
             return self::SUCCESS;
@@ -85,12 +106,34 @@ class ClonePackageCommand extends Command
             return $this->handleError($exception, $isJson);
         }
 
+        $synced = false;
+        if (! $noSync) {
+            $synchronizer->sync($root);
+            $synced = true;
+        }
+
+        $updated = false;
+        if ($shouldUpdate) {
+            $process = new Process(['composer', 'update', $packageName, '--no-interaction'], $root);
+            $process->setTimeout(300.0);
+            $process->run();
+            $updated = ($process->getExitCode() === 0);
+        }
+
+        $result['composer_synced'] = $synced;
+        $result['composer_updated'] = $updated;
+
         if ($isJson) {
             $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         } else {
             $this->info('Cloned '.$result['name'].' into '.$result['path'].' on '.$result['branch']);
             $this->line('Commit: '.$result['commit']);
-            $this->line('Composer dependencies have not been installed.');
+            if ($synced) {
+                $this->line('Workspace composer.json synchronized.');
+            }
+            if ($updated) {
+                $this->info('Composer package updated and linked locally.');
+            }
             foreach (['require' => (array) $result['require'], 'require_dev' => (array) $result['require_dev']] as $section => $deps) {
                 foreach ($deps as $name => $constraint) {
                     $this->line($section.': '.$name.' '.$constraint);
