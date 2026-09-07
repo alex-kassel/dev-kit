@@ -1,6 +1,6 @@
 # DevKit Roadmap & Engineering Priorities
 
-This document tracks the prioritized development roadmap for `alex-kassel/dev-kit`. It reflects the architectural vision established in [Proposal 001: Modular Laravel Development Environment](docs/proposals/001-modular-workspace-vision.md) and translates it into concrete, prioritized iterations.
+This document tracks the prioritized development roadmap for `alex-kassel/dev-kit`. It reflects the architectural vision established in [Proposal 001: Modular Laravel Development Environment](docs/proposals/001-modular-workspace-vision.md) and incorporates the empirical findings from the [Recursive Localization Audit (2026-09-07)](docs/reports/2026-09-07-recursive-localization-audit.md).
 
 ---
 
@@ -13,8 +13,14 @@ This document tracks the prioritized development roadmap for `alex-kassel/dev-ki
 | **Critical** | **P1.3** | SemVer Dependency Localization without Solver Duplication | **Planned** | v0.1.0 |
 | **High** | **P2.1** | Clean Standalone Test Run (`--isolated` verification) | **Planned** | v0.1.1 |
 | **High** | **P2.2** | Safe Package Removal (`php artisan pkg:remove`) | **Planned** | v0.1.1 |
+| **High** | **P2.3** | Tooling Command Parity & Registration (`composer test:tooling`) | **Planned** | v0.1.1 |
+| **High** | **P2.4** | Atomic Concurrency Locking (`flock` on `composer.json`) | **Planned** | v0.1.1 |
+| **High** | **P2.5** | Upstream-Aware Rebase Guard in Git Automation | **Planned** | v0.1.1 |
 | **Medium** | **P3.1** | Declarative Workspace Manifest (`workspace.yaml` & `pkg:restore`) | **Deferred to Phase 3** | v0.2.0 |
 | **Medium** | **P3.2** | Native Artisan Audit Command (`php artisan pkg:audit`) | **Planned** | v0.2.0 |
+| **Medium** | **P3.3** | Automated CI Matrix Scaffolding (GitHub Actions Matrix) | **Planned** | v0.2.0 |
+| **Medium** | **P3.4** | Semantic Versioning & Backward Compatibility Gate (`roave/backward-compatibility-check`) | **Planned** | v0.2.0 |
+| **Medium** | **P3.5** | Windows Symlink / Junction Diagnostics & Fallback Detection | **Planned** | v0.2.0 |
 | **Low** | **P4.1** | Frontend Resources & Vite Path Aliases | **Deferred** | Backlog |
 
 ---
@@ -65,6 +71,26 @@ This document tracks the prioritized development roadmap for `alex-kassel/dev-ki
   - Remove path from host `composer.json`, unlink symlink, and prompt for confirmation if `--force` is not provided.
 - **Outcome**: Safe, bidirectional workspace lifecycle management.
 
+#### P2.3: Tooling Command Parity & Registration (`composer test:tooling`)
+- **Rationale**: `AGENTS.md` and monorepo documentation specify `composer test:tooling` as the standard command to run tests for dev-kit tooling, but the script is not registered in root `composer.json` or `WorkspaceInstaller::prepareScripts`.
+- **Approach**:
+  - Add `test:tooling` script mapping (`@php artisan test packages/alex-kassel/dev-kit`) to `WorkspaceInstaller::prepareScripts`.
+  - Ensure root `composer.json` receives this script upon `pkg:install` and `pkg:sync`.
+- **Outcome**: Seamless parity between repository guidelines and executable Composer scripts.
+
+#### P2.4: Atomic Concurrency Locking (`flock` on `composer.json`)
+- **Rationale**: When multiple agents or concurrent processes execute commands mutating root `composer.json` (such as `pkg:sync`, `pkg:clone`, or `pkg:make`), uncoordinated file writes can cause race conditions and corrupted JSON manifests.
+- **Approach**:
+  - Introduce advisory file locking using `flock(LOCK_EX)` with exponential backoff around all reads and writes to `composer.json` in `PackageSynchronizer` and `WorkspaceInstaller`.
+- **Outcome**: Concurrency-safe operations across multi-agent workflows.
+
+#### P2.5: Upstream-Aware Rebase Guard in Git Automation
+- **Rationale**: The core invariant requiring `git pull --rebase` before commits fails on newly created feature branches that do not yet have an upstream tracking branch configured (`@{u}`).
+- **Approach**:
+  - Implement a safety check (`git rev-parse --verify --quiet @{u}`) in verification routines and agent runbooks before executing `git pull --rebase`.
+  - Fall back gracefully to local commit validation if no remote tracking branch is established.
+- **Outcome**: Eliminates pipeline interruptions when starting work on new feature branches.
+
 ---
 
 ### 3. Medium Priority (Workspace State & Automation)
@@ -79,6 +105,27 @@ This document tracks the prioritized development roadmap for `alex-kassel/dev-ki
 #### P3.2: Native Artisan Audit Command (`php artisan pkg:audit`)
 - **Rationale**: Multi-agent audit workflows are currently run via `.agents/skills/package-audit/`. A native artisan command will provide non-agent CLI parity.
 - **Scope**: Expose orchestrator report generator via CLI with `--format=json` and `--output=...`.
+
+#### P3.3: Automated CI Matrix Scaffolding (GitHub Actions Matrix)
+- **Rationale**: Local development and verification execute exclusively against the host runtime (e.g. PHP 8.4 and Laravel 13). Packages claiming support for PHP ^8.2|^8.3|^8.4 and Laravel 11|12|13 suffer from a local matrix blind spot.
+- **Approach**:
+  - Update `PackageScaffolder` to automatically generate `.github/workflows/run-tests.yml` for newly scaffolded packages.
+  - Configure matrix testing across supported PHP versions, minimum/latest dependencies (`--prefer-lowest`), and active Laravel releases.
+- **Outcome**: Deterministic multi-version compatibility validation on CI.
+
+#### P3.4: Semantic Versioning & Backward Compatibility Gate (`roave/backward-compatibility-check`)
+- **Rationale**: Currently, `ReleaseChecker` validates code style, test execution, and static analysis, but does not detect unintended breaking changes in public class/method signatures compared to previous release tags.
+- **Approach**:
+  - Integrate `roave/backward-compatibility-check` into `php artisan pkg:release-check <pkg>`.
+  - Compare the current Git HEAD against the latest Git tag, blocking non-major releases if breaking changes are found.
+- **Outcome**: Automated prevention of unintended SemVer violations before tagging.
+
+#### P3.5: Windows Symlink / Junction Diagnostics & Fallback Detection
+- **Rationale**: On Windows machines without Developer Mode enabled, Composer cannot create symbolic links or NTFS junctions, falling back silently to copying files. This breaks real-time package code reflections in `vendor/`.
+- **Approach**:
+  - Add a diagnostics check in `pkg:install` and `pkg:check` that verifies whether linked packages in `vendor/` are active NTFS junctions or symlinks.
+  - Warn the user with clear instructions to enable Windows Developer Mode if copies are detected.
+- **Outcome**: Prevents subtle out-of-sync bugs during package development on Windows.
 
 ---
 
