@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-07
+
 ### Fixed
+- Validate package names with canonical Composer regex and reject path traversal in `PackageScaffolder`.
+- Harden path containment check and delegate clone staging cleanup to `FileIO::removeDirectory` in `PackageCloner`.
 - Reject traversal and linked package paths before removal, including with `--force`.
 - Stop removal on Git errors, missing upstreams, local unpublished work and invalid manifests; require explicit noninteractive confirmation.
 - Use Symfony Filesystem atomic writes and handle read-only Git objects on Windows without shell deletion.
@@ -17,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Replace the regex-based phantom dependency detector with a real optional standalone Composer installation and package test run (`--isolated`). This removes `PhantomDependencyDetector` and changes the first `PackageVerifier` constructor dependency to `IsolatedPackageVerifier`.
 - Add Windows and macOS CI jobs and regression tests for preservation of user work, version selection and isolation.
+- Update `ROADMAP.md` tracking completed milestones and empirical findings regarding standalone require checking.
+- Update `README.md` documenting `pkg:remove`, concurrency protection, testing command, and `composer test:tooling`.
+- Add `@internal` annotations to internal utility classes `FileIO`, `FileLock`, and `PackagePathResolver`.
 
 ### Added
 - Advisory concurrency locking (`AlexKassel\DevKit\FileLock`) using non-blocking `flock(LOCK_EX | LOCK_NB)` with bounded randomized retry, wrapping `composer.json` and manifest mutations in `PackageSynchronizer` and `WorkspaceInstaller`.
@@ -25,10 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatic remote default branch autodetection (remote `HEAD`) in `PackageCloner` when `--branch` is omitted.
 - Seamless SemVer dependency constraint localization (`^1.0`, `~2.0`) in `PackageLocalizer` without solver duplication.
 - Automatic streaming `composer update` on recursive package cloning with `--no-update` opt-out in `pkg:clone`.
-
-### Changed
-- Updated `ROADMAP.md` tracking completed milestones and empirical findings regarding standalone require checking.
-- Updated `README.md` documenting `pkg:remove`, concurrency protection, and `composer test:tooling`.
 
 ## [0.0.4] - 2026-09-07
 

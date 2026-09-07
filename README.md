@@ -205,7 +205,7 @@ composer test:tooling
 Or run directly via PHPUnit or universal verification:
 
 ```bash
-vendor/bin/phpunit packages/alex-kassel/dev-kit/tests
+vendor/bin/phpunit -c packages/alex-kassel/dev-kit/phpunit.xml
 php artisan pkg:check alex-kassel/dev-kit
 ```
 
