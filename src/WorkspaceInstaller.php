@@ -223,11 +223,13 @@ class WorkspaceInstaller
             } else {
                 $existing = $this->read($targetPath);
                 $isDefaultSkeletonPlaceholder = str_contains($existing, '<laravel-boost-guidelines>')
-                    || str_contains($existing, 'laravel/boost')
-                    || str_contains($existing, '# Laravel Boost');
+                    && ! str_contains($existing, '<dev-kit-guidelines>');
 
-                if (($force || $isDefaultSkeletonPlaceholder) && $existing !== $content) {
-                    $writes['AGENTS.md'] = $content;
+                if ($force || $isDefaultSkeletonPlaceholder) {
+                    $mergedContent = $this->mergeAgentsContent($existing, $content);
+                    if ($mergedContent !== $existing) {
+                        $writes['AGENTS.md'] = $mergedContent;
+                    }
                 }
             }
         }
@@ -257,6 +259,34 @@ class WorkspaceInstaller
                 $writes[$relTarget] = $content;
             }
         }
+    }
+
+    private function mergeAgentsContent(string $existing, string $devKitContent): string
+    {
+        $hasBoost = str_contains($existing, '<laravel-boost-guidelines>');
+        $hasDevKit = str_contains($existing, '<dev-kit-guidelines>');
+
+        if ($hasBoost) {
+            if ($hasDevKit) {
+                return (string) preg_replace(
+                    '/<dev-kit-guidelines>.*?<\/dev-kit-guidelines>/s',
+                    trim($devKitContent),
+                    $existing
+                );
+            }
+
+            return rtrim($existing)."\n\n".trim($devKitContent)."\n";
+        }
+
+        if ($hasDevKit) {
+            return (string) preg_replace(
+                '/<dev-kit-guidelines>.*?<\/dev-kit-guidelines>/s',
+                trim($devKitContent),
+                $existing
+            );
+        }
+
+        return $devKitContent;
     }
 
     private function read(string $path): string

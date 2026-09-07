@@ -1,3 +1,4 @@
+<dev-kit-guidelines>
 # AGENTS.MD — Repository Guidelines & Invariants
 
 Welcome to the project repository. Any AI agent (Antigravity, Cursor, Copilot, etc.) working in this environment MUST strictly adhere to the project invariants, skills, and automation tooling indexed below.
@@ -95,4 +96,5 @@ When developing, planning, or refactoring packages inside `packages/`:
 - **Check Existing Roadmaps**: Always inspect whether the target package defines a `ROADMAP.md` (e.g. `packages/<vendor>/<package>/ROADMAP.md`) or concept proposals in `docs/proposals/` before proposing changes.
 - **Priority Alignment**: Align implementation priorities with the established roadmap (Critical > High > Medium > Low).
 - **Roadmap Maintenance**: Keep package roadmaps and proposal statuses synchronized whenever features are delivered or technical decisions are agreed upon.
+</dev-kit-guidelines>
 

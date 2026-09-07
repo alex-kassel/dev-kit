@@ -56,6 +56,14 @@ class InstallCommand extends Command
             });
         }
 
+        if (! $isDryRun && $this->getApplication()?->has('boost:install')) {
+            $this->call('boost:install', [
+                '--no-interaction' => true,
+                '--guidelines' => true,
+                '--skills' => true,
+            ]);
+        }
+
         if ($isLocal && ! $isDryRun) {
             $exitCode = $this->call('pkg:clone', [
                 'package' => 'alex-kassel/dev-kit',

@@ -198,17 +198,26 @@ class WorkspaceInstallerTest extends TestCase
         $this->assertStringContainsString('AGENTS.MD — Repository Guidelines', file_get_contents($this->root.'/AGENTS.md'));
     }
 
-    public function test_auto_replaces_laravel_boost_placeholder_without_force(): void
+    public function test_preserves_laravel_boost_guidelines_and_appends_dev_kit_guidelines(): void
     {
         $installer = new WorkspaceInstaller;
 
-        // Simulate a default skeleton with Laravel Boost placeholder
-        file_put_contents($this->root.'/AGENTS.md', "# Boost Guidelines\n<laravel-boost-guidelines>\nRun boost commands\n");
+        // Simulate a default skeleton with Laravel Boost guidelines
+        $boostSection = "<laravel-boost-guidelines>\n# Laravel Boost\nRun boost commands\n</laravel-boost-guidelines>";
+        file_put_contents($this->root.'/AGENTS.md', $boostSection);
 
         $result = $installer->install($this->root, false, false);
 
         $this->assertSame('installed', $result['status']);
         $this->assertContains('AGENTS.md', $result['files']);
-        $this->assertStringContainsString('AGENTS.MD — Repository Guidelines', file_get_contents($this->root.'/AGENTS.md'));
+
+        $updatedContent = file_get_contents($this->root.'/AGENTS.md');
+        $this->assertStringContainsString('<laravel-boost-guidelines>', $updatedContent);
+        $this->assertStringContainsString('<dev-kit-guidelines>', $updatedContent);
+        $this->assertStringContainsString('AGENTS.MD — Repository Guidelines', $updatedContent);
+
+        // Subsequent install without changes should be unchanged
+        $secondResult = $installer->install($this->root, false, false);
+        $this->assertSame('unchanged', $secondResult['status']);
     }
 }
