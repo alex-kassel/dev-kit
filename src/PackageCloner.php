@@ -41,7 +41,7 @@ class PackageCloner
         try {
             $cloneUrl = $source;
             try {
-                $this->git(['clone', '--single-branch', '--branch', $branch, '--no-recurse-submodules', '--', $cloneUrl, $staging], $root);
+                $this->git(['-c', 'core.autocrlf=input', 'clone', '--single-branch', '--branch', $branch, '--no-recurse-submodules', '--', $cloneUrl, $staging], $root);
             } catch (RuntimeException $gitException) {
                 // If SSH clone failed due to missing key / host verification, fallback to HTTPS if applicable
                 $isSsh = str_starts_with($source, 'git@') || str_starts_with($source, 'ssh://');
@@ -56,7 +56,7 @@ class PackageCloner
                     }
 
                     $cloneUrl = $httpsFallback;
-                    $this->git(['clone', '--single-branch', '--branch', $branch, '--no-recurse-submodules', '--', $cloneUrl, $staging], $root);
+                    $this->git(['-c', 'core.autocrlf=input', 'clone', '--single-branch', '--branch', $branch, '--no-recurse-submodules', '--', $cloneUrl, $staging], $root);
                 } else {
                     throw $gitException;
                 }

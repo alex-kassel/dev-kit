@@ -232,7 +232,7 @@ class PackageVerifier
 
         if (file_exists($stanConfig)) {
             $configRel = str_replace('\\', '/', $relPackagePath.'/phpstan.neon');
-            $command = [$phpstanBin, 'analyse', $target, '--configuration='.$configRel, '--memory-limit=1G'];
+            $command = [$phpstanBin, 'analyse', '--configuration='.$configRel, '--memory-limit=1G'];
         } else {
             $command = [$phpstanBin, 'analyse', $target, '--level=8', '--memory-limit=1G'];
         }
@@ -256,26 +256,46 @@ class PackageVerifier
         }
 
         $xmlRel = str_replace('\\', '/', $relPackagePath.'/phpunit.xml');
-        $artisanPath = $root.DIRECTORY_SEPARATOR.'artisan';
+        $pestBin = $this->resolveBinary($root, 'pest');
+        $phpunitBin = $this->resolveBinary($root, 'phpunit');
+        $isPest = file_exists($packagePath.DIRECTORY_SEPARATOR.'tests'.DIRECTORY_SEPARATOR.'Pest.php') && $pestBin !== null;
 
-        if (file_exists($artisanPath)) {
-            $command = [PHP_BINARY, 'artisan', 'test', '-c', $xmlRel];
-        } else {
-            $phpunitBin = $this->resolveBinary($root, 'phpunit') ?? 'phpunit';
+        if ($isPest) {
+            $command = [$pestBin, '-c', $xmlRel];
+        } elseif ($phpunitBin !== null) {
             $command = [$phpunitBin, '-c', $xmlRel];
+        } else {
+            $artisanPath = $root.DIRECTORY_SEPARATOR.'artisan';
+            if (file_exists($artisanPath)) {
+                $command = [PHP_BINARY, 'artisan', 'test', '-c', $xmlRel];
+            } else {
+                $command = ['phpunit', '-c', $xmlRel];
+            }
         }
 
-        return $this->runCommand($command, $root, 'Automated Tests');
+        $testEnv = [
+            'APP_ENV' => 'testing',
+            'CACHE_STORE' => 'array',
+            'CACHE_DRIVER' => 'array',
+            'SESSION_DRIVER' => 'array',
+            'QUEUE_CONNECTION' => 'sync',
+            'MAIL_MAILER' => 'array',
+            'PULSE_ENABLED' => 'false',
+            'TELESCOPE_ENABLED' => 'false',
+        ];
+
+        return $this->runCommand($command, $root, 'Automated Tests', $testEnv);
     }
 
     /**
      * @param  list<string>  $command
+     * @param  array<string, string|\Stringable|false>  $env
      * @return array{name: string, status: string, exit_code: int, command: string, output: string, duration_ms: int}
      */
-    private function runCommand(array $command, string $cwd, string $checkName): array
+    private function runCommand(array $command, string $cwd, string $checkName, array $env = []): array
     {
         $startTime = microtime(true);
-        $process = new Process($command, $cwd);
+        $process = new Process($command, $cwd, $env ?: null);
         $process->setTimeout(120.0);
 
         try {
