@@ -9,161 +9,107 @@ use Symfony\Component\Process\Process;
 
 class PackageRemover
 {
-    /**
-     * @return array{
-     *     schema_version: int,
-     *     status: string,
-     *     package: string,
-     *     path: string,
-     *     unlinked: bool,
-     *     deleted: bool
-     * }
-     */
-    public function remove(
-        string $root,
-        string $package,
-        bool $unlinkOnly = false,
-        bool $force = false,
-        bool $noSync = false
-    ): array {
+    public function __construct(private readonly PackagePathResolver $paths = new PackagePathResolver) {}
+
+    /** @return array{schema_version: int, status: string, package: string, path: string, unlinked: bool, deleted: bool} */
+    public function remove(string $root, string $package, bool $unlinkOnly = false, bool $force = false, bool $noSync = false): array
+    {
+        $path = $this->paths->resolve($root, $package);
         $root = realpath($root);
         if ($root === false) {
             throw new RuntimeException('Host directory does not exist.');
         }
+        $name = basename(dirname($path)).'/'.basename($path);
 
-        $rawPackage = trim($package, '/\\ ');
-        $pkgPath = $root.DIRECTORY_SEPARATOR.'packages'.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $rawPackage);
+        return FileLock::run($root.'/.composer-manifest.lock', function () use ($root, $name, $path, $unlinkOnly, $force, $noSync): array {
+            // Validate every prerequisite before any irreversible filesystem operation.
+            $manifestPath = $root.'/composer.json';
+            $original = $noSync ? null : FileIO::read($manifestPath);
+            try {
+                $manifest = $original === null ? null : json_decode($original, false, 512, JSON_THROW_ON_ERROR);
+            } catch (\JsonException $exception) {
+                throw new RuntimeException('Invalid root composer.json: '.$exception->getMessage(), 0, $exception);
+            }
+            if (! $noSync && ! $manifest instanceof \stdClass) {
+                throw new RuntimeException('Root composer.json must contain a JSON object.');
+            }
+            if (! $noSync && is_link($manifestPath)) {
+                throw new RuntimeException('Refusing to modify a linked composer.json.');
+            }
+            $changed = false;
+            if ($manifest instanceof \stdClass) {
+                foreach (['require', 'require-dev'] as $section) {
+                    if (isset($manifest->{$section})) {
+                        if (! $manifest->{$section} instanceof \stdClass) {
+                            throw new RuntimeException('Invalid dependency section: '.$section);
+                        }
+                        if (property_exists($manifest->{$section}, $name)) {
+                            unset($manifest->{$section}->{$name});
+                            $changed = true;
+                        }
+                    }
+                }
+            }
+            if (! $unlinkOnly) {
+                $this->assertSafeToDelete($path, $name, $force);
+            }
+            // A failed manifest update must never destroy a checkout.
+            if ($changed) {
+                FileIO::write($manifestPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n", $original);
+            }
+            try {
+                if (! $unlinkOnly) {
+                    $this->paths->resolve($root, $name);
+                    FileIO::removeDirectory($path);
+                }
+            } catch (\Throwable $exception) {
+                if ($changed && $original !== null) {
+                    FileIO::write($manifestPath, $original);
+                }
+                throw new RuntimeException('Removal failed; inspect the checkout for partial deletion. Manifest changes were rolled back: '.$exception->getMessage(), 0, $exception);
+            }
 
-        if (! is_dir($pkgPath)) {
-            throw new RuntimeException("Package directory not found: packages/{$rawPackage}");
-        }
-
-        $shouldDelete = ! $unlinkOnly;
-
-        if ($shouldDelete) {
-            $this->assertSafeToDelete($pkgPath, $rawPackage, $force);
-            $this->deleteDirectory($pkgPath);
-        }
-
-        $unlinked = false;
-        if (! $noSync) {
-            $this->unlinkPackageManifest($root, $rawPackage);
-            $unlinked = true;
-        }
-
-        return [
-            'schema_version' => 1,
-            'status' => 'removed',
-            'package' => $rawPackage,
-            'path' => 'packages/'.str_replace('\\', '/', $rawPackage),
-            'unlinked' => $unlinked,
-            'deleted' => $shouldDelete,
-        ];
+            return ['schema_version' => 1, 'status' => 'removed', 'package' => $name, 'path' => 'packages/'.$name,
+                'unlinked' => ! $noSync, 'deleted' => ! $unlinkOnly];
+        });
     }
 
-    private function assertSafeToDelete(string $pkgPath, string $package, bool $force): void
+    private function assertSafeToDelete(string $path, string $name, bool $force): void
     {
         if ($force) {
             return;
         }
-
-        $gitDir = $pkgPath.DIRECTORY_SEPARATOR.'.git';
-        if (! is_dir($gitDir)) {
-            return;
+        $top = trim($this->git($path, ['rev-parse', '--show-toplevel']));
+        if (realpath($top) !== realpath($path)) {
+            throw new RuntimeException('Package is not an independent Git checkout. Use --force to remove: '.$name);
         }
-
-        // 1. Check for dirty / uncommitted working tree
-        $statusProcess = new Process(['git', 'status', '--porcelain'], $pkgPath);
-        $statusProcess->run();
-        $statusOutput = trim($statusProcess->getOutput());
-        if ($statusOutput !== '') {
-            throw new RuntimeException("Package '{$package}' has uncommitted or untracked changes. Commit, stash, or pass --force to remove.");
+        if (trim($this->git($path, ['status', '--porcelain', '--untracked-files=all', '--ignored'])) !== '') {
+            throw new RuntimeException('Package has uncommitted, untracked or ignored files. Preserve them or use --force: '.$name);
         }
-
-        // 2. Check for unpushed commits if upstream exists
-        $upstreamCheck = new Process(['git', 'rev-parse', '--verify', '--quiet', '@{u}'], $pkgPath);
-        $upstreamCheck->run();
-        if ($upstreamCheck->getExitCode() === 0) {
-            $logProcess = new Process(['git', 'log', '@{u}..HEAD', '--oneline'], $pkgPath);
-            $logProcess->run();
-            $logOutput = trim($logProcess->getOutput());
-            if ($logOutput !== '') {
-                throw new RuntimeException("Package '{$package}' has unpushed commits. Push changes or pass --force to remove.");
-            }
+        // No upstream, detached HEAD and failed Git commands all stop removal.
+        $this->git($path, ['rev-parse', '--verify', '@{u}']);
+        if (trim($this->git($path, ['log', '@{u}..HEAD', '--oneline'])) !== '') {
+            throw new RuntimeException('Package has unpushed commits: '.$name);
+        }
+        if (trim($this->git($path, ['stash', 'list'])) !== '') {
+            throw new RuntimeException('Package has stashed changes: '.$name);
+        }
+        if (trim($this->git($path, ['rev-list', '--branches', '--tags', '--not', '--remotes'])) !== '') {
+            throw new RuntimeException('Package contains local commits not covered by remote tracking refs: '.$name);
         }
     }
 
-    private function deleteDirectory(string $path): void
+    /** @param list<string> $arguments */
+    private function git(string $path, array $arguments): string
     {
-        if (PHP_OS_FAMILY === 'Windows') {
-            $process = new Process(['cmd.exe', '/c', 'rd', '/s', '/q', $path]);
-            $process->run();
-            if ($process->getExitCode() === 0 && ! is_dir($path)) {
-                return;
-            }
+        $process = new Process(['git', ...$arguments], $path);
+        $process->setTimeout(30);
+        try {
+            $process->mustRun();
+        } catch (\Throwable $exception) {
+            throw new RuntimeException('Cannot establish safe removal: '.$exception->getMessage(), 0, $exception);
         }
 
-        $files = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST
-        );
-
-        foreach ($files as $file) {
-            if ($file->isDir()) {
-                @rmdir($file->getRealPath());
-            } else {
-                @unlink($file->getRealPath());
-            }
-        }
-
-        @rmdir($path);
-        if (is_dir($path)) {
-            throw new RuntimeException("Failed to completely delete directory: {$path}");
-        }
-    }
-
-    private function unlinkPackageManifest(string $root, string $package): void
-    {
-        $composerPath = $root.DIRECTORY_SEPARATOR.'composer.json';
-        if (! file_exists($composerPath)) {
-            return;
-        }
-
-        $lockPath = $root.DIRECTORY_SEPARATOR.'.composer-manifest.lock';
-        FileLock::run($lockPath, function () use ($composerPath, $package): void {
-            $contents = @file_get_contents($composerPath);
-            if ($contents === false) {
-                return;
-            }
-
-            try {
-                /** @var array<string, mixed>|null $data */
-                $data = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
-            } catch (\JsonException) {
-                return;
-            }
-
-            if (! is_array($data)) {
-                return;
-            }
-
-            $changed = false;
-            if (isset($data['require']) && is_array($data['require']) && array_key_exists($package, $data['require'])) {
-                unset($data['require'][$package]);
-                $changed = true;
-            }
-
-            if (isset($data['require-dev']) && is_array($data['require-dev']) && array_key_exists($package, $data['require-dev'])) {
-                unset($data['require-dev'][$package]);
-                $changed = true;
-            }
-
-            if ($changed) {
-                $encoded = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-                if ($encoded !== false) {
-                    FileIO::write($composerPath, $encoded."\n", $contents);
-                }
-            }
-        });
+        return $process->getOutput();
     }
 }

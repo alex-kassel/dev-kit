@@ -16,6 +16,7 @@ class RemovePackageCommand extends Command
         {package : Composer package name (e.g. vendor/package)}
         {--unlink : Only unlink package from workspace, leave directory on disk}
         {--force : Force removal even if git working tree has uncommitted or unpushed changes}
+        {--yes : Confirm deletion without disabling Git safety checks}
         {--no-sync : Do not synchronize workspace composer.json after removal}
         {--json : Output result as JSON}';
 
@@ -44,7 +45,17 @@ class RemovePackageCommand extends Command
         $noSync = (bool) $this->option('no-sync');
         $isJson = (bool) $this->option('json');
 
-        if (! $unlinkOnly && ! $force && ! $isJson) {
+        if (! $unlinkOnly && ! $force && ! $this->option('yes')) {
+            if ($isJson || ! $this->input->isInteractive()) {
+                $message = 'Deletion requires --yes (Git checks enabled) or --force (Git checks bypassed).';
+                if ($isJson) {
+                    $this->line(json_encode(['schema_version' => 1, 'status' => 'error', 'error' => ['code' => 'CONFIRMATION_REQUIRED', 'message' => $message]], JSON_THROW_ON_ERROR));
+                } else {
+                    $this->error($message);
+                }
+
+                return self::FAILURE;
+            }
             if (! $this->confirm("Are you sure you want to permanently delete 'packages/{$packageName}'?", false)) {
                 $this->info('Removal cancelled.');
 
@@ -75,7 +86,7 @@ class RemovePackageCommand extends Command
             $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         } else {
             if ($result['deleted']) {
-                $this->info("Package '{$packageName}' deleted from disk and unlinked from workspace.");
+                $this->info("Package '{$packageName}' deleted from disk.".($result['unlinked'] ? ' Removed from composer.json.' : ' composer.json was not changed.'));
             } else {
                 $this->info("Package '{$packageName}' unlinked from workspace (files retained on disk).");
             }

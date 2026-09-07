@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AlexKassel\DevKit;
 
 use Composer\Semver\Semver;
+use Composer\Semver\VersionParser;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 
@@ -109,95 +110,73 @@ class PackageLocalizer
      */
     private function assertSemverSatisfied(string $root, string $name, array $checkout, string $constraint, string $from): void
     {
-        $trimmedConstraint = trim($constraint);
-        if ($trimmedConstraint === '*' || str_contains($trimmedConstraint, '@dev')) {
-            return;
-        }
-
         $packagePath = rtrim($root, '/\\').'/packages/'.$name;
         $versions = $this->detectCandidateVersions($packagePath, (string) ($checkout['branch'] ?? ''));
-
         foreach ($versions as $version) {
-            try {
-                if (Semver::satisfies($version, $trimmedConstraint)) {
-                    return;
-                }
-            } catch (\UnexpectedValueException) {
-                // If version string is malformed for Semver, continue
+            if (Semver::satisfies($version, $constraint)) {
+                return;
             }
         }
-
-        $hasExplicitVersion = $this->hasExplicitVersion($packagePath);
-        if (! $hasExplicitVersion) {
-            return;
-        }
-
-        $checkedVersions = empty($versions) ? 'none' : implode(', ', $versions);
-        throw new RuntimeException("{$from} requires {$name} {$constraint}, but local package versions ({$checkedVersions}) do not satisfy the constraint.");
+        $checkedVersions = $versions === [] ? 'unknown' : implode(', ', $versions);
+        throw new RuntimeException("{$from} requires {$name} {$constraint}, but current checkout versions ({$checkedVersions}) do not satisfy the constraint. Select a compatible ref or declare a matching Composer branch alias; Composer remains the final dependency solver.");
     }
 
-    /**
-     * @return list<string>
-     */
+    /** @return list<string> */
     private function detectCandidateVersions(string $packagePath, string $branch): array
     {
         $versions = [];
-
-        $manifestPath = $packagePath.'/composer.json';
-        if (file_exists($manifestPath)) {
-            $content = @file_get_contents($manifestPath);
-            if ($content !== false) {
-                /** @var array<string, mixed>|null $json */
-                $json = json_decode($content, true);
-                if (is_array($json) && isset($json['version']) && is_string($json['version'])) {
-                    $versions[] = ltrim($json['version'], 'v');
-                }
+        $manifest = [];
+        if (is_file($packagePath.'/composer.json')) {
+            $decoded = json_decode(FileIO::read($packagePath.'/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+            if (! is_array($decoded)) {
+                throw new RuntimeException('Invalid package manifest: '.$packagePath);
             }
+            $manifest = $decoded;
         }
-
-        if (is_dir($packagePath.'/.git')) {
-            $process = new Process(['git', 'tag', '-l', '--sort=-v:refname'], $packagePath);
-            $process->run();
-            if ($process->getExitCode() === 0) {
-                $lines = preg_split('/\r?\n/', trim($process->getOutput())) ?: [];
-                foreach ($lines as $line) {
-                    $trimmed = trim($line);
-                    if ($trimmed !== '') {
-                        $versions[] = ltrim($trimmed, 'v');
+        if (isset($manifest['version']) && is_string($manifest['version'])) {
+            $versions[] = $manifest['version'];
+        } elseif (file_exists($packagePath.'/.git')) {
+            $status = new Process(['git', 'status', '--porcelain'], $packagePath);
+            $status->mustRun();
+            // A tag only describes HEAD, never dirty working-tree content or another commit.
+            if (trim($status->getOutput()) === '') {
+                $tags = new Process(['git', 'tag', '--points-at', 'HEAD'], $packagePath);
+                $tags->mustRun();
+                foreach (preg_split('/\r?\n/', trim($tags->getOutput())) ?: [] as $tag) {
+                    if ($tag !== '') {
+                        try {
+                            (new VersionParser)->normalize($tag);
+                            $versions[] = $tag;
+                        } catch (\UnexpectedValueException) {
+                            // Git permits descriptive tags that are not Composer versions.
+                        }
                     }
                 }
             }
         }
-
         if ($branch !== '') {
-            $versions[] = 'dev-'.$branch;
+            $parser = new VersionParser;
+            $branchVersion = $parser->normalizeBranch($branch);
+            $versions[] = $branchVersion;
+            $aliasSource = str_starts_with($branchVersion, 'dev-') ? $branchVersion : $branch.'-dev';
+            $alias = $manifest['extra']['branch-alias'][$aliasSource] ?? null;
+            if (is_string($alias)) {
+                if (! str_ends_with($alias, '-dev')) {
+                    throw new RuntimeException('Composer branch aliases must end in -dev: '.$alias);
+                }
+                $normalized = $parser->normalizeBranch(substr($alias, 0, -4));
+                if (! str_ends_with($normalized, '-dev') || str_starts_with($normalized, 'dev-')) {
+                    throw new RuntimeException('Composer branch alias must describe a numeric development version: '.$alias);
+                }
+                $sourcePrefix = $parser->parseNumericAliasPrefix($aliasSource);
+                $targetPrefix = $parser->parseNumericAliasPrefix($alias);
+                if ($sourcePrefix !== false && ($targetPrefix === false || ! str_starts_with($targetPrefix, $sourcePrefix))) {
+                    throw new RuntimeException('Numeric branch aliases must stay within the source version line: '.$aliasSource.' => '.$alias);
+                }
+                $versions[] = $normalized;
+            }
         }
 
         return array_values(array_unique($versions));
-    }
-
-    private function hasExplicitVersion(string $packagePath): bool
-    {
-        $manifestPath = $packagePath.'/composer.json';
-        if (file_exists($manifestPath)) {
-            $content = @file_get_contents($manifestPath);
-            if ($content !== false) {
-                /** @var array<string, mixed>|null $json */
-                $json = json_decode($content, true);
-                if (is_array($json) && isset($json['version']) && is_string($json['version']) && trim($json['version']) !== '') {
-                    return true;
-                }
-            }
-        }
-
-        if (is_dir($packagePath.'/.git')) {
-            $process = new Process(['git', 'tag', '-l'], $packagePath);
-            $process->run();
-            if ($process->getExitCode() === 0 && trim($process->getOutput()) !== '') {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

@@ -20,7 +20,7 @@ class CheckPackageCommand extends Command
         {--all : Verify all discovered local packages in workspace}
         {--fix : Automatically fix code style issues with Pint}
         {--only= : Comma-separated list of checks to run (composer,pint,phpstan,tests,isolated)}
-        {--isolated : Verify against phantom dependencies and undeclared packages}
+        {--isolated : Install and test an independent temporary package copy}
         {--parallel : Run workspace package matrix checks concurrently}
         {--no-parallel : Run workspace checks sequentially}
         {--json : Emit a machine-readable result}';
@@ -38,12 +38,22 @@ class CheckPackageCommand extends Command
         $noParallel = (bool) $this->option('no-parallel');
         $parallel = ! $noParallel;
         $onlyOption = $this->option('only');
-        $only = is_string($onlyOption) && $onlyOption !== '' ? explode(',', $onlyOption) : null;
+        $only = is_string($onlyOption) ? array_map('trim', explode(',', $onlyOption)) : null;
 
         $root = $this->laravel->basePath();
 
         if ($all) {
-            $result = $verifier->verifyAll($root, $fix, $only, $parallel, $isolated);
+            try {
+                $result = $verifier->verifyAll($root, $fix, $only, $parallel, $isolated);
+            } catch (RuntimeException $exception) {
+                if ($isJson) {
+                    $this->line(json_encode(['schema_version' => 1, 'status' => 'error', 'error' => ['code' => 'VERIFICATION_ERROR', 'message' => $exception->getMessage()]], JSON_THROW_ON_ERROR));
+                } else {
+                    $this->error($exception->getMessage());
+                }
+
+                return self::FAILURE;
+            }
             if ($isJson) {
                 $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
             } else {
@@ -149,6 +159,8 @@ class CheckPackageCommand extends Command
 
         if ($result['status'] === 'passed') {
             $this->info("✔ VERIFICATION PASSED: All {$summary['passed']} active check(s) passed.");
+        } elseif ($result['status'] === 'incomplete') {
+            $this->error('VERIFICATION INCOMPLETE: required tools or configuration are missing.');
         } else {
             $this->error("✖ VERIFICATION FAILED: {$summary['failed']} check(s) failed.");
         }
@@ -191,6 +203,8 @@ class CheckPackageCommand extends Command
         $this->newLine();
         if ($result['status'] === 'passed') {
             $this->info("✔ All {$result['total']} packages passed verification.");
+        } elseif ($result['status'] === 'incomplete') {
+            $this->error('VERIFICATION INCOMPLETE: no packages were checked.');
         } else {
             $this->error("✖ {$result['failed']} of {$result['total']} packages failed verification.");
         }

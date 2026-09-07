@@ -50,6 +50,22 @@ class FileIOTest extends TestCase
         FileIO::read($this->tempDir.'/missing.txt');
     }
 
+    public function test_existing_crlf_content_is_not_double_converted(): void
+    {
+        $file = $this->tempDir.'/crlf.txt';
+        FileIO::write($file, "one\r\ntwo\r\n", "original\r\n");
+        $this->assertSame("one\r\ntwo\r\n", FileIO::read($file));
+    }
+
+    public function test_atomic_replacement_updates_existing_file(): void
+    {
+        $file = $this->tempDir.'/manifest.json';
+        FileIO::write($file, '{"old":true}');
+        FileIO::write($file, '{"new":true}');
+        $this->assertSame('{"new":true}', FileIO::read($file));
+        $this->assertSame(['manifest.json'], array_values(array_diff(scandir($this->tempDir), ['.', '..'])));
+    }
+
     private function deleteRecursive(string $dir): void
     {
         if (! is_dir($dir)) {

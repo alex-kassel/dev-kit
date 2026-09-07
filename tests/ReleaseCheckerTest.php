@@ -48,16 +48,16 @@ class ReleaseCheckerTest extends TestCase
         mkdir($pkgDir, 0777, true);
         file_put_contents($pkgDir.'/composer.json', json_encode(['name' => 'alex-kassel/test-pkg']));
 
-        $verifier = $this->createMock(PackageVerifier::class);
+        $verifier = $this->createStub(PackageVerifier::class);
         $verifier->method('verify')->willReturn([
             'package' => 'alex-kassel/test-pkg',
             'path' => 'packages/alex-kassel/test-pkg',
             'status' => 'passed',
-            'summary' => ['passed' => 4, 'failed' => 0, 'skipped' => 0, 'not_configured' => 0],
-            'checks' => [],
+            'summary' => ['passed' => 5, 'failed' => 0, 'skipped' => 0, 'not_configured' => 0],
+            'checks' => array_fill_keys(['composer', 'pint', 'phpstan', 'tests', 'isolated'], ['status' => 'passed']),
         ]);
 
-        $readmeValidator = $this->createMock(ReadmeValidator::class);
+        $readmeValidator = $this->createStub(ReadmeValidator::class);
         $readmeValidator->method('validate')->willReturn([
             'package' => 'alex-kassel/test-pkg',
             'path' => 'packages/alex-kassel/test-pkg',
@@ -74,6 +74,20 @@ class ReleaseCheckerTest extends TestCase
         $this->assertSame('failed', $result['checks']['export_ignore']['status']);
     }
 
+    public function test_release_rejects_a_green_summary_without_mandatory_results(): void
+    {
+        $pkgDir = $this->root.'/packages/alex-kassel/test-pkg';
+        mkdir($pkgDir, 0777, true);
+        file_put_contents($pkgDir.'/composer.json', '{"name":"alex-kassel/test-pkg"}');
+        $verifier = $this->createStub(PackageVerifier::class);
+        $verifier->method('verify')->willReturn([
+            'package' => 'alex-kassel/test-pkg', 'path' => 'packages/alex-kassel/test-pkg',
+            'status' => 'passed', 'summary' => ['passed' => 0, 'failed' => 0, 'skipped' => 0, 'not_configured' => 0], 'checks' => [],
+        ]);
+        $result = (new ReleaseChecker($verifier))->check($this->root, 'alex-kassel/test-pkg');
+        $this->assertSame('failed', $result['checks']['code_quality']['status']);
+    }
+
     public function test_check_detects_clean_git_and_gitattributes(): void
     {
         $pkgDir = $this->root.'/packages/alex-kassel/test-pkg';
@@ -88,16 +102,16 @@ class ReleaseCheckerTest extends TestCase
         (new Process(['git', 'add', '.'], $pkgDir))->mustRun();
         (new Process(['git', 'commit', '-m', 'initial commit'], $pkgDir))->mustRun();
 
-        $verifier = $this->createMock(PackageVerifier::class);
+        $verifier = $this->createStub(PackageVerifier::class);
         $verifier->method('verify')->willReturn([
             'package' => 'alex-kassel/test-pkg',
             'path' => 'packages/alex-kassel/test-pkg',
             'status' => 'passed',
-            'summary' => ['passed' => 4, 'failed' => 0, 'skipped' => 0, 'not_configured' => 0],
-            'checks' => [],
+            'summary' => ['passed' => 5, 'failed' => 0, 'skipped' => 0, 'not_configured' => 0],
+            'checks' => array_fill_keys(['composer', 'pint', 'phpstan', 'tests', 'isolated'], ['status' => 'passed']),
         ]);
 
-        $readmeValidator = $this->createMock(ReadmeValidator::class);
+        $readmeValidator = $this->createStub(ReadmeValidator::class);
         $readmeValidator->method('validate')->willReturn([
             'package' => 'alex-kassel/test-pkg',
             'path' => 'packages/alex-kassel/test-pkg',
@@ -136,16 +150,16 @@ class ReleaseCheckerTest extends TestCase
 
         file_put_contents($pkgDir.'/RELEASE-GATE.md', "# Release Gate\n- **Target Branch / Commit:** `main` (`{$headCommit}`)\n");
 
-        $verifier = $this->createMock(PackageVerifier::class);
+        $verifier = $this->createStub(PackageVerifier::class);
         $verifier->method('verify')->willReturn([
             'package' => 'alex-kassel/test-pkg',
             'path' => 'packages/alex-kassel/test-pkg',
             'status' => 'passed',
-            'summary' => ['passed' => 4, 'failed' => 0, 'skipped' => 0, 'not_configured' => 0],
-            'checks' => [],
+            'summary' => ['passed' => 5, 'failed' => 0, 'skipped' => 0, 'not_configured' => 0],
+            'checks' => array_fill_keys(['composer', 'pint', 'phpstan', 'tests', 'isolated'], ['status' => 'passed']),
         ]);
 
-        $readmeValidator = $this->createMock(ReadmeValidator::class);
+        $readmeValidator = $this->createStub(ReadmeValidator::class);
         $readmeValidator->method('validate')->willReturn([
             'package' => 'alex-kassel/test-pkg',
             'path' => 'packages/alex-kassel/test-pkg',
@@ -175,16 +189,16 @@ class ReleaseCheckerTest extends TestCase
         (new Process(['git', 'add', '.'], $pkgDir))->mustRun();
         (new Process(['git', 'commit', '-m', 'feat: initial commit'], $pkgDir))->mustRun();
 
-        $verifier = $this->createMock(PackageVerifier::class);
+        $verifier = $this->createStub(PackageVerifier::class);
         $verifier->method('verify')->willReturn([
             'package' => 'alex-kassel/test-pkg',
             'path' => 'packages/alex-kassel/test-pkg',
             'status' => 'passed',
-            'summary' => ['passed' => 4, 'failed' => 0, 'skipped' => 0, 'not_configured' => 0],
-            'checks' => [],
+            'summary' => ['passed' => 5, 'failed' => 0, 'skipped' => 0, 'not_configured' => 0],
+            'checks' => array_fill_keys(['composer', 'pint', 'phpstan', 'tests', 'isolated'], ['status' => 'passed']),
         ]);
 
-        $readmeValidator = $this->createMock(ReadmeValidator::class);
+        $readmeValidator = $this->createStub(ReadmeValidator::class);
         $readmeValidator->method('validate')->willReturn([
             'package' => 'alex-kassel/test-pkg',
             'path' => 'packages/alex-kassel/test-pkg',

@@ -11,7 +11,7 @@ This document tracks the prioritized development roadmap for `alex-kassel/dev-ki
 | **Critical** | **P1.1** | Package Boundary & Phantom Dependency Detection | **Evaluated (Non-Applicable to Monorepo)** | v0.1.0 |
 | **Critical** | **P1.2** | Default Remote Branch Autodetection in `pkg:clone` | **Completed** | v0.1.0 |
 | **Critical** | **P1.3** | SemVer Dependency Localization without Solver Duplication | **Completed** | v0.1.0 |
-| **High** | **P2.1** | Clean Standalone Test Run (`--isolated` verification) | **Planned** | v0.1.1 |
+| **High** | **P2.1** | Clean Standalone Test Run (`--isolated` verification) | **Completed** | v0.1.1 |
 | **High** | **P2.2** | Safe Package Removal (`php artisan pkg:remove`) | **Completed** | v0.1.1 |
 | **High** | **P2.3** | Tooling Command Parity & Registration (`composer test:tooling`) | **Completed** | v0.1.1 |
 | **High** | **P2.4** | Atomic Concurrency Locking (`flock` on `composer.json`) | **Completed** | v0.1.1 |
@@ -33,7 +33,7 @@ This document tracks the prioritized development roadmap for `alex-kassel/dev-ki
 - **Rationale**: In a monorepo sharing the host `vendor/`, packages can inadvertently use classes declared only by the host skeleton. Such packages pass local tests and static analysis, but break immediately when installed standalone via Packagist.
 - **Evaluation & Empirical Finding**:
   - `maglnet/composer-require-checker` was evaluated. However, it mandates a physical `vendor/` and `installed.json` inside each package's local directory, violating the fundamental monorepo invariant of shared host `vendor/`. Artificial workaround hacks (such as synthetic `vendor-dir` manifests) introduce brittle file coupling.
-  - The phantom dependency and standalone verification gate is cleanly addressed at the release stage via **P2.1 (Isolated Package Verification)** using `git archive` and clean temporary installation.
+  - The phantom dependency and standalone verification gate is cleanly addressed at the release stage via **P2.1 (Isolated Package Verification)** using a current-checkout export including tests and clean temporary installation.
 - **Outcome**: Concluded that external AST require-checking tool is architecturally incompatible with clean monorepo constraints; superseded by clean standalone export testing in P2.1.
 
 #### P1.2: Default Remote Branch Autodetection in `pkg:clone`
@@ -60,7 +60,7 @@ This document tracks the prioritized development roadmap for `alex-kassel/dev-ki
 - **Approach**:
   - Add an `--isolated` mode to `pkg:release-check` (or `pkg:check`).
   - Create a temporary staging directory, export the package, execute `composer install --prefer-dist`, and run package tests via Orchestra Testbench.
-- **Outcome**: 100% confidence that the package functions outside the development workspace.
+- **Outcome**: Evidence that the package installs and its declared tests pass without host dependencies; untested behavior remains outside this check.
 
 #### P2.2: Safe Package Removal (`php artisan pkg:remove`)
 - **Rationale**: Removing a package currently requires manual directory removal and running `pkg:sync --clean`.
@@ -80,7 +80,7 @@ This document tracks the prioritized development roadmap for `alex-kassel/dev-ki
 #### P2.4: Atomic Concurrency Locking (`flock` on `composer.json`)
 - **Rationale**: When multiple agents or concurrent processes execute commands mutating root `composer.json` (such as `pkg:sync`, `pkg:clone`, or `pkg:make`), uncoordinated file writes can cause race conditions and corrupted JSON manifests.
 - **Approach**:
-  - Introduce advisory file locking using `flock(LOCK_EX)` with exponential backoff around all reads and writes to `composer.json` in `PackageSynchronizer` and `WorkspaceInstaller`.
+  - Introduce advisory file locking using `flock(LOCK_EX)` with bounded randomized retry around all reads and writes to `composer.json` in `PackageSynchronizer` and `WorkspaceInstaller`.
 - **Outcome**: Concurrency-safe operations across multi-agent workflows.
 
 #### P2.5: Upstream-Aware Rebase Guard in Git Automation
@@ -132,3 +132,11 @@ This document tracks the prioritized development roadmap for `alex-kassel/dev-ki
 
 #### P4.1: Frontend Resources & Vite Path Aliases
 - **Decision**: Deferred to Backlog. Most domain and infrastructure packages are purely backend/API components. Frontend scaffolding will be revisited when UI-centric packages are introduced.
+
+## Reliability Review Follow-up
+
+- P1.3: version checks now use clean HEAD tags and current branch aliases, reject unknown/incompatible versions, and leave final solving to Composer.
+- P2.1: implemented as an explicit standalone installation/test mode. The former namespace-regex approximation was removed. All mandatory release checks must pass; skipped or unconfigured work is incomplete.
+- P2.2: removal now validates canonical package paths, fails closed on Git uncertainty, preserves manifests on prerequisite failures and requires explicit noninteractive confirmation. It changes the manifest only; Composer installation reconciliation remains a separate operation.
+- P2.4: manifest writes use Symfony Filesystem atomic replacement under the existing advisory lock. This coordinates DevKit writers, not arbitrary external editors or Composer processes.
+- Cross-platform validation: Windows and macOS jobs were added alongside the existing Ubuntu compatibility matrix. This does not complete P3.3 (generated CI workflows for new packages).

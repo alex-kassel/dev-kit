@@ -63,6 +63,8 @@ class PackageLocalizerTest extends TestCase
 
     public function test_numeric_constraint_does_not_invent_a_branch(): void
     {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('current checkout versions');
         $result = $this->runGraph(['mine/a' => ['mine/b' => '^1.0'], 'mine/b' => []]);
         $this->assertSame(['mine/a', 'mine/b'], $this->calls);
     }
@@ -83,7 +85,7 @@ class PackageLocalizerTest extends TestCase
             'version' => '1.2.0',
         ]));
 
-        $cloner = $this->createMock(PackageCloner::class);
+        $cloner = $this->createStub(PackageCloner::class);
         $cloner->method('clonePackage')->willReturnCallback(function (string $r, string $name, ?string $branch = null): array {
             return [
                 'name' => $name,
@@ -129,7 +131,7 @@ class PackageLocalizerTest extends TestCase
             'version' => '2.0.0',
         ]));
 
-        $cloner = $this->createMock(PackageCloner::class);
+        $cloner = $this->createStub(PackageCloner::class);
         $cloner->method('clonePackage')->willReturnCallback(function (string $r, string $name, ?string $branch = null): array {
             return [
                 'name' => $name,
@@ -156,7 +158,7 @@ class PackageLocalizerTest extends TestCase
 
         try {
             $this->expectException(RuntimeException::class);
-            $this->expectExceptionMessage('mine/a requires mine/b ^1.0, but local package versions (2.0.0, dev-main) do not satisfy the constraint.');
+            $this->expectExceptionMessage('mine/a requires mine/b ^1.0, but current checkout versions (2.0.0, dev-main) do not satisfy the constraint.');
             $localizer->localize($root, 'mine/a', 'main', $sources, ['mine']);
         } finally {
             if (file_exists($root.'/packages/mine/b/composer.json')) {
@@ -179,7 +181,7 @@ class PackageLocalizerTest extends TestCase
 
     private function runGraph(array $graph): array
     {
-        $cloner = $this->createMock(PackageCloner::class);
+        $cloner = $this->createStub(PackageCloner::class);
         $cloner->method('clonePackage')->willReturnCallback(function (string $root, string $name, ?string $branch = null) use ($graph): array {
             $this->calls[] = $name;
 

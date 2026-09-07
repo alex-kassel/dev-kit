@@ -710,3 +710,11 @@ AI — потребитель environment API.
 - **Problem**: Forcing an explicit `--branch` parameter fails if the user or agent does not know whether a remote repository uses `main`, `master`, or another trunk.
 - **Resolution**:
   - Remove mandatory requirement for `--branch`. Git natively resolves remote `HEAD` when `--branch` is omitted.
+
+### 3.4 Implemented Reliability Decisions
+
+The namespace-regex approximation has been removed. P2.1 now implements a separate Composer installation and executable test run using a current-checkout export that retains tests. This supersedes the earlier proposed require-checker integration in section 3.2; direct-symbol declaration analysis remains outside this test-based guarantee.
+
+Version preflight uses only the current checkout's explicit version, clean HEAD tags and current branch aliases. It does not select historical releases or negotiate a dependency solution. The final decision remains with Composer.
+
+Removal validates canonical package paths and requires positive Git evidence before deleting without force. Individual manifest writes use Symfony Filesystem atomic replacement. Host dependency installation is still managed explicitly by Composer.

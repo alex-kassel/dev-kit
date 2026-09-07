@@ -88,6 +88,26 @@ class PackageVerifierTest extends TestCase
         $result = $verifier->verify($this->root, 'mine/example', false, null, true);
 
         $this->assertArrayHasKey('isolated', $result['checks']);
-        $this->assertSame('Isolated Dependencies (Phantom Check)', $result['checks']['isolated']['name']);
+        $this->assertSame('Standalone Installation and Tests', $result['checks']['isolated']['name']);
+        $this->assertSame('failed', $result['checks']['isolated']['status']);
+    }
+
+    public function test_unknown_check_cannot_produce_a_green_empty_report(): void
+    {
+        $this->expectException(RuntimeException::class);
+        (new PackageVerifier)->verify($this->root, 'mine/example', only: ['typo']);
+    }
+
+    public function test_unconfigured_checks_produce_incomplete_status(): void
+    {
+        $result = (new PackageVerifier)->verify($this->root, 'mine/example', only: ['tests', 'phpstan']);
+        $this->assertSame('incomplete', $result['status']);
+        $this->assertSame(0, $result['summary']['passed']);
+    }
+
+    public function test_empty_selection_is_rejected(): void
+    {
+        $this->expectException(RuntimeException::class);
+        (new PackageVerifier)->verify($this->root, 'mine/example', only: []);
     }
 }

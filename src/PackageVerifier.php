@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace AlexKassel\DevKit;
 
 use RuntimeException;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
 class PackageVerifier
 {
     public function __construct(
-        private readonly PhantomDependencyDetector $phantomDetector = new PhantomDependencyDetector,
+        private readonly IsolatedPackageVerifier $isolatedVerifier = new IsolatedPackageVerifier,
         private readonly PackagePathResolver $pathResolver = new PackagePathResolver
     ) {}
 
@@ -20,6 +21,7 @@ class PackageVerifier
      */
     public function verify(string $root, string $package, bool $fix = false, ?array $only = null, bool $isolated = false): array
     {
+        $this->validateChecks($only);
         $root = realpath($root);
         if ($root === false) {
             throw new RuntimeException('Host directory does not exist.');
@@ -52,9 +54,9 @@ class PackageVerifier
             $checks['tests'] = $this->checkTests($root, $packagePath, $relPackagePath);
         }
 
-        // 5. Isolated Dependencies (Phantom Check)
-        if ($runCheck('isolated') || $isolated) {
-            $checks['isolated'] = $this->checkIsolated($root, $packagePath);
+        // Standalone installation is explicitly requested; release checks always request it.
+        if ($isolated || ($only !== null && in_array('isolated', $only, true))) {
+            $checks['isolated'] = $this->isolatedVerifier->verify($packagePath);
         }
 
         $passedCount = 0;
@@ -72,7 +74,8 @@ class PackageVerifier
             };
         }
 
-        $overallStatus = $failedCount === 0 ? 'passed' : 'failed';
+        $overallStatus = $failedCount > 0 ? 'failed'
+            : (($skippedCount > 0 || $notConfiguredCount > 0 || $passedCount === 0) ? 'incomplete' : 'passed');
 
         return [
             'package' => $package,
@@ -100,11 +103,15 @@ class PackageVerifier
         bool $isolated = false,
         int $concurrency = 4
     ): array {
+        $this->validateChecks($only);
+        if ($concurrency < 1) {
+            throw new RuntimeException('Concurrency must be at least one.');
+        }
         $packageRoot = rtrim($root, '/\\').'/packages';
         if (! is_dir($packageRoot)) {
             return [
                 'schema_version' => 1,
-                'status' => 'ok',
+                'status' => 'incomplete',
                 'total' => 0,
                 'passed' => 0,
                 'failed' => 0,
@@ -158,18 +165,25 @@ class PackageVerifier
                     }
 
                     $process = new Process($cmd, $root);
-                    $process->setTimeout(300.0);
+                    $process->setTimeout($isolated || ($only !== null && in_array('isolated', $only, true)) ? 1500.0 : 600.0);
                     $process->start();
                     $pool[$pkg] = $process;
                 }
 
                 foreach ($pool as $pkg => $process) {
+                    try {
+                        $process->checkTimeout();
+                    } catch (ProcessTimedOutException) {
+                        // checkTimeout stops the process; collect its failed result below.
+                    }
                     if (! $process->isRunning()) {
                         unset($pool[$pkg]);
                         $output = trim($process->getOutput());
                         try {
-                            /** @var array<string, mixed> $decoded */
                             $decoded = json_decode($output, true, 512, JSON_THROW_ON_ERROR);
+                            if (! is_array($decoded) || ! isset($decoded['status']) || ! $process->isSuccessful()) {
+                                throw new \JsonException('Invalid or unsuccessful verification process response.');
+                            }
                             $packageResults[$pkg] = $decoded;
                         } catch (\JsonException) {
                             $packageResults[$pkg] = [
@@ -221,7 +235,7 @@ class PackageVerifier
 
         return [
             'schema_version' => 1,
-            'status' => $failedTotal === 0 ? 'passed' : 'failed',
+            'status' => $packages === [] ? 'incomplete' : ($failedTotal === 0 ? 'passed' : 'failed'),
             'total' => count($packages),
             'passed' => $passedTotal,
             'failed' => $failedTotal,
@@ -318,6 +332,9 @@ class PackageVerifier
     {
         $phpunitXml = $packagePath.DIRECTORY_SEPARATOR.'phpunit.xml';
         if (! file_exists($phpunitXml)) {
+            $phpunitXml .= '.dist';
+        }
+        if (! file_exists($phpunitXml)) {
             return [
                 'name' => 'Automated Tests',
                 'status' => 'not_configured',
@@ -328,7 +345,7 @@ class PackageVerifier
             ];
         }
 
-        $xmlRel = str_replace('\\', '/', $relPackagePath.'/phpunit.xml');
+        $xmlRel = str_replace('\\', '/', $relPackagePath.'/'.basename($phpunitXml));
         $pestBin = $this->resolveBinary($root, 'pest');
         $phpunitBin = $this->resolveBinary($root, 'phpunit');
         $isPest = file_exists($packagePath.DIRECTORY_SEPARATOR.'tests'.DIRECTORY_SEPARATOR.'Pest.php') && $pestBin !== null;
@@ -346,6 +363,7 @@ class PackageVerifier
             }
         }
 
+        $command[] = '--fail-on-empty-test-suite';
         $testEnv = [
             'APP_ENV' => 'testing',
             'CACHE_STORE' => 'array',
@@ -392,21 +410,12 @@ class PackageVerifier
         ];
     }
 
-    /** @return array{name: string, status: string, exit_code: int, command: string, output: string, duration_ms: int} */
-    private function checkIsolated(string $root, string $packagePath): array
+    /** @param list<string>|null $only */
+    private function validateChecks(?array $only): void
     {
-        $startTime = microtime(true);
-        $result = $this->phantomDetector->detect($root, $packagePath);
-        $durationMs = (int) round((microtime(true) - $startTime) * 1000);
-
-        return [
-            'name' => 'Isolated Dependencies (Phantom Check)',
-            'status' => $result['status'],
-            'exit_code' => $result['status'] === 'passed' ? 0 : 1,
-            'command' => 'phantom-dependency-detector',
-            'output' => $result['message'],
-            'duration_ms' => $durationMs,
-        ];
+        if ($only !== null && ($only === [] || array_diff($only, ['composer', 'pint', 'phpstan', 'tests', 'isolated']) !== [])) {
+            throw new RuntimeException('Select at least one known check: composer,pint,phpstan,tests,isolated.');
+        }
     }
 
     private function resolveBinary(string $root, string $binName): ?string

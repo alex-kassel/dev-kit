@@ -28,8 +28,8 @@
 * **Deterministic Workspace Setup (pkg:install):** Prepares host path repositories, gitignore rules, Artisan command shortcuts, and synchronizes agent instructions with optional --force overwrite.
 * **Smart Package Generator (pkg:make):** Scaffolds enterprise packages with archetype presets (library, engine, domain), strict typing, and full test suites.
 * **Remote Git Ingestion (pkg:clone):** Clones standalone packages from remote Git repositories with automatic default branch detection, recursive SemVer dependency localization, and streaming `composer update`.
-* **Safe Package Removal (pkg:remove):** Safely removes local packages with uncommitted/unpushed Git hygiene guards, unlinks path repositories, and synchronizes workspace manifests.
-* **Concurrency File Locking:** Advisory `flock` protection with exponential backoff on all workspace manifest operations, preventing race conditions during parallel agent execution.
+* **Safe Package Removal (pkg:remove):** Safely removes local packages with uncommitted/unpushed Git hygiene guards, removes the root dependency declaration; Composer installation state is updated separately.
+* **Concurrency File Locking:** Advisory `flock` protection with bounded randomized retry on all workspace manifest operations, coordinating cooperating DevKit commands; atomic file replacement protects individual writes.
 * **Comprehensive Quality Gate (pkg:check):** Executes 4-stage quality verification (Composer validation, Pint style fixing, PHPStan Level 8, PHPUnit tests).
 * **Package Inventory (pkg:list):** Scans the workspace, reports versioning and path repository registration status.
 * **Automated Monorepo Sync (pkg:sync):** Detects local packages and synchronizes them with root dependencies and path repositories.
@@ -167,6 +167,30 @@ Options in `config/dev-kit.php`:
 
 > [!TIP]
 > **Zero-Friction Ingestion**: `pkg:clone` automatically falls back to HTTPS if SSH authentication (missing key or host verification) fails. When localizing packages previously installed with fixed SemVer constraints (e.g. `^0.0.2`), `pkg:sync` automatically unbinds the constraint to `@dev` across `require` and `require-dev` to prevent Composer solver conflicts.
+
+---
+
+## Verification and Removal Guarantees
+
+`pkg:check` runs Composer validation, Pint, PHPStan and tests locally. A selected check that is unavailable or unconfigured produces `incomplete`, not `passed`, and a failing exit code. Unknown or empty `--only` selections are rejected. PHPUnit configurations may be named `phpunit.xml` or `phpunit.xml.dist`; an empty suite fails.
+
+`pkg:check vendor/package --isolated` additionally exports the current Git checkout (tracked and non-ignored files, including tests and uncommitted changes), installs dependencies into a fresh temporary `vendor/`, and executes that package's declared PHPUnit or Pest runner. It excludes the host autoloader, global Composer configuration, package lock file, `.env`, Git metadata and existing dependency directories. Path repositories are rejected. Network access and independently resolvable package dependencies are required. Each installation/test process has a ten-minute timeout. Temporary files are removed afterward, including after failure.
+
+This is an installation and executable-test check, not a static proof that every referenced symbol is declared directly or that untested paths are correct. The former regex-based `PhantomDependencyDetector` API was removed; `IsolatedPackageVerifier` provides the actual standalone check. `pkg:release-check` requires all five checks to pass. The standalone copy retains tests marked `export-ignore`; it is not a validation of the distribution archive's exact contents.
+
+`pkg:remove vendor/package --yes` confirms deletion while retaining Git checks. `--json` changes output format only and does not authorize deletion. Without `--force`, removal refuses non-Git directories, Git errors, missing upstreams, detached HEAD, dirty or ignored files, stashes and local commits not covered by remote tracking refs. These refs reflect the last fetch; removal does not contact remotes. `--force` bypasses Git preservation checks, never path validation. Linked package directories and traversal arguments are rejected. A manifest failure stops before deletion; a deletion failure restores the original manifest and reports that files may have been partially removed.
+
+`--unlink` only removes the dependency declaration, retaining files. Neither unlink nor removal runs Composer or changes `composer.lock`/`vendor`; reconcile the host installation with Composer afterward. A later `pkg:sync` can register a retained directory again.
+
+Localization validates versions associated with the current checkout: an explicit manifest version, valid tags pointing at a clean HEAD, and the current branch/its numeric Composer branch alias. Historical tags never certify another checkout. Unknown or incompatible versions stop localization with an actionable message; stability flags such as `@dev` do not bypass numeric constraints. Composer remains responsible for final dependency resolution.
+
+The network-backed consumer regression suite is separate from the fast local suite:
+
+```bash
+php vendor/bin/phpunit -c packages/alex-kassel/dev-kit/phpunit-standalone.xml
+```
+
+It proves both successful standalone installation with declared dependencies and failure when a grouped import uses an undeclared Laravel component. CI runs it on the PHP 8.4 / Laravel 13 stable jobs for all three operating systems.
 
 ---
 

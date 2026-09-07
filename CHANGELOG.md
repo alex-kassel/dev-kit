@@ -7,8 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Reject traversal and linked package paths before removal, including with `--force`.
+- Stop removal on Git errors, missing upstreams, local unpublished work and invalid manifests; require explicit noninteractive confirmation.
+- Use Symfony Filesystem atomic writes and handle read-only Git objects on Windows without shell deletion.
+- Report unavailable verification as incomplete, reject invalid selections, fail empty test suites, and require all release checks.
+- Validate SemVer against current checkout versions and branch aliases instead of unrelated historical tags.
+
+### Changed
+- Replace the regex-based phantom dependency detector with a real optional standalone Composer installation and package test run (`--isolated`). This removes `PhantomDependencyDetector` and changes the first `PackageVerifier` constructor dependency to `IsolatedPackageVerifier`.
+- Add Windows and macOS CI jobs and regression tests for preservation of user work, version selection and isolation.
+
 ### Added
-- Advisory concurrency locking (`AlexKassel\DevKit\FileLock`) using non-blocking `flock(LOCK_EX | LOCK_NB)` with exponential backoff, wrapping `composer.json` and manifest mutations in `PackageSynchronizer` and `WorkspaceInstaller`.
+- Advisory concurrency locking (`AlexKassel\DevKit\FileLock`) using non-blocking `flock(LOCK_EX | LOCK_NB)` with bounded randomized retry, wrapping `composer.json` and manifest mutations in `PackageSynchronizer` and `WorkspaceInstaller`.
 - Safe package removal command (`php artisan pkg:remove`) and `PackageRemover` service with Git working tree cleanliness and unpushed commits guards.
 - Tooling test runner shortcut `"test:tooling"` in root `composer.json` and `WorkspaceInstaller`.
 - Automatic remote default branch autodetection (remote `HEAD`) in `PackageCloner` when `--branch` is omitted.
