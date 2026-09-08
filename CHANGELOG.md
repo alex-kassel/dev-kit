@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-08
+
+### Fixed
+- Streamlined `pkg:install` CLI output to display prepared files as a clean bulleted list instead of a comma-separated string.
+- Preserved dev dependencies in `require-dev` during `pkg:sync` without migrating them to `require`.
+- Resolved PHPStan Level 8 type analysis warning in `PackageCloner`.
+
+### Changed
+- Configured Laravel Boost integration (`boost.json`) with `"agents": ["antigravity"]` and `"guidelines": false` to route Boost skills into `.agents/skills` and keep `AGENTS.md` lean.
+- Streamlined `resources/agents/AGENTS.md` guidelines template to clean, professional engineering rules.
+
 ## [0.2.0] - 2026-09-08
 
 ### Added
