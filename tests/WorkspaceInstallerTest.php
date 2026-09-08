@@ -220,4 +220,42 @@ class WorkspaceInstallerTest extends TestCase
         $secondResult = $installer->install($this->root, false, false);
         $this->assertSame('unchanged', $secondResult['status']);
     }
+
+    public function test_prepares_full_boost_config_and_removes_default_claude_placeholder(): void
+    {
+        $installer = new WorkspaceInstaller;
+        file_put_contents($this->root.'/CLAUDE.md', "<laravel-boost-guidelines>\ncomposer require laravel/boost --dev\n</laravel-boost-guidelines>");
+
+        $result = $installer->install($this->root);
+
+        $this->assertSame('installed', $result['status']);
+        $this->assertContains('boost.json', $result['files']);
+        $this->assertFileExists($this->root.'/boost.json');
+        $this->assertFileDoesNotExist($this->root.'/CLAUDE.md');
+
+        $config = json_decode(file_get_contents($this->root.'/boost.json'), true);
+        $this->assertSame(['antigravity'], $config['agents']);
+        $this->assertFalse($config['cloud']);
+        $this->assertFalse($config['guidelines']);
+        $this->assertTrue($config['mcp']);
+        $this->assertFalse($config['nightwatch']);
+        $this->assertFalse($config['sail']);
+        $this->assertSame([
+            'infer-conventions',
+            'laravel-best-practices',
+            'testing-best-practices',
+            'tailwindcss-development',
+        ], $config['skills']);
+    }
+
+    public function test_custom_claude_file_is_not_removed(): void
+    {
+        $installer = new WorkspaceInstaller;
+        file_put_contents($this->root.'/CLAUDE.md', '# My Custom Claude Instructions');
+
+        $installer->install($this->root);
+
+        $this->assertFileExists($this->root.'/CLAUDE.md');
+        $this->assertSame('# My Custom Claude Instructions', file_get_contents($this->root.'/CLAUDE.md'));
+    }
 }

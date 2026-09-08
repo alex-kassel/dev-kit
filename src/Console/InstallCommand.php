@@ -64,6 +64,7 @@ class InstallCommand extends Command
             $this->call('boost:install', [
                 '--no-interaction' => true,
                 '--skills' => true,
+                '--mcp' => true,
             ]);
         }
 

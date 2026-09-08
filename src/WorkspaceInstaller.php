@@ -104,6 +104,14 @@ class WorkspaceInstaller
                     throw new RuntimeException('Could not create packages/. Earlier file changes may have been applied; rerun after fixing permissions.');
                 }
             }
+
+            $claudePath = $root.'/CLAUDE.md';
+            if (File::exists($claudePath)) {
+                $claudeContent = $this->read($claudePath);
+                if (str_contains($claudeContent, 'composer require laravel/boost --dev')) {
+                    @unlink($claudePath);
+                }
+            }
         }
 
         return [
@@ -296,13 +304,23 @@ class WorkspaceInstaller
     private function prepareBoostConfig(string $root, array &$writes): void
     {
         $boostPath = $root.'/boost.json';
+        $defaultConfig = [
+            'agents' => ['antigravity'],
+            'cloud' => false,
+            'guidelines' => false,
+            'mcp' => true,
+            'nightwatch' => false,
+            'sail' => false,
+            'skills' => [
+                'infer-conventions',
+                'laravel-best-practices',
+                'testing-best-practices',
+                'tailwindcss-development',
+            ],
+        ];
+
         if (! File::exists($boostPath)) {
-            $boostConfig = [
-                'cloud' => false,
-                'guidelines' => false,
-                'agents' => ['antigravity'],
-            ];
-            $writes['boost.json'] = json_encode($boostConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n";
+            $writes['boost.json'] = json_encode($defaultConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n";
         } else {
             try {
                 $existing = json_decode($this->read($boostPath), true, 512, JSON_THROW_ON_ERROR);
@@ -320,6 +338,31 @@ class WorkspaceInstaller
                 }
                 if (($existing['guidelines'] ?? null) !== false) {
                     $existing['guidelines'] = false;
+                    $modified = true;
+                }
+                if (($existing['mcp'] ?? null) !== true) {
+                    $existing['mcp'] = true;
+                    $modified = true;
+                }
+                if (! isset($existing['skills']) || ! is_array($existing['skills'])) {
+                    $existing['skills'] = [
+                        'infer-conventions',
+                        'laravel-best-practices',
+                        'testing-best-practices',
+                        'tailwindcss-development',
+                    ];
+                    $modified = true;
+                }
+                if (! array_key_exists('cloud', $existing)) {
+                    $existing['cloud'] = false;
+                    $modified = true;
+                }
+                if (! array_key_exists('nightwatch', $existing)) {
+                    $existing['nightwatch'] = false;
+                    $modified = true;
+                }
+                if (! array_key_exists('sail', $existing)) {
+                    $existing['sail'] = false;
                     $modified = true;
                 }
                 if ($modified) {
