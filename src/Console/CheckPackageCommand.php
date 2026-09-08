@@ -151,13 +151,13 @@ class CheckPackageCommand extends Command
                 <div class="flex space-x-1">
                     <span>{$badge}</span>
                     <span class="font-bold text-gray-200">{$check['name']}</span>
-                    <span class="text-gray-500 text-xs">({$check['duration_ms']} ms)</span>
+                    <span class="text-gray-500">({$check['duration_ms']} ms)</span>
                 </div>
             HTML);
 
             if ($check['status'] === 'failed' && ! empty($check['output'])) {
                 render(<<<HTML
-                    <div class="my-1 p-1 bg-red-950 text-red-200 text-xs">
+                    <div class="my-1 p-1 bg-red-950 text-red-200">
                         <pre>{$check['output']}</pre>
                     </div>
                 HTML);

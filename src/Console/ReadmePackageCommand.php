@@ -66,7 +66,7 @@ class ReadmePackageCommand extends Command
 
             if ($check['status'] === 'failed') {
                 render(<<<HTML
-                    <div class="ml-4 text-red-400 text-xs">
+                    <div class="ml-4 text-red-400">
                         └─ {$check['message']}
                     </div>
                 HTML);

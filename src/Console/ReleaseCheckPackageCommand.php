@@ -53,7 +53,7 @@ class ReleaseCheckPackageCommand extends Command
             <div class="my-1">
                 <span class="px-1 bg-purple-600 text-white font-bold">RELEASE-GATE PRE-FLIGHT</span>
                 <span class="ml-1 text-gray-400">{$result['path']}</span>
-                <span class="ml-2 text-gray-500 text-xs">Tag: {$result['latest_tag']}</span>
+                <span class="ml-2 text-gray-500">Tag: {$result['latest_tag']}</span>
             </div>
         HTML);
 
@@ -76,7 +76,7 @@ class ReleaseCheckPackageCommand extends Command
 
             if ($check['status'] !== 'passed') {
                 render(<<<HTML
-                    <div class="ml-4 text-zinc-400 text-xs">
+                    <div class="ml-4 text-zinc-400">
                         └─ {$check['message']}
                     </div>
                 HTML);
