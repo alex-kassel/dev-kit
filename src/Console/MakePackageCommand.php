@@ -6,6 +6,7 @@ namespace AlexKassel\DevKit\Console;
 
 use AlexKassel\DevKit\PackageScaffolder;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Process;
 use RuntimeException;
 
 use function Laravel\Prompts\confirm;
@@ -20,6 +21,7 @@ class MakePackageCommand extends Command
         {--archetype=library : Package archetype: library, engine, or domain}
         {--git : Initialize Git repository in package directory}
         {--register : Register package in root composer.json require}
+        {--update : Run composer update on host to link registered package}
         {--dry-run : Simulate creation without writing files}
         {--json : Emit a machine-readable result}';
 
@@ -103,6 +105,22 @@ class MakePackageCommand extends Command
             $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         } else {
             $this->renderSummary($result);
+        }
+
+        $update = (bool) $this->option('update');
+        if ($update && $register && ! $dryRun) {
+            if (! $isJson) {
+                $this->info("Running composer update for {$package}...");
+            }
+            $cmd = ['composer', 'update', $package, '--prefer-dist', '--no-interaction'];
+            $pending = Process::path($root)->timeout(600);
+            if (! $isJson) {
+                $pending->run($cmd, function (string $type, string $buffer): void {
+                    $this->output->write($buffer);
+                });
+            } else {
+                $pending->run($cmd);
+            }
         }
 
         return self::SUCCESS;

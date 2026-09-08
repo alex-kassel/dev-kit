@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AlexKassel\DevKit\Tests;
 
 use AlexKassel\DevKit\PackageScaffolder;
+use Illuminate\Support\Facades\Process;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -122,5 +123,19 @@ class PackageScaffolderTest extends TestCase
 
         $readme = (string) file_get_contents($this->root.'/packages/alex-kassel/custom-stubs-pkg/README.md');
         $this->assertSame('# Custom CustomStubsPkg Readme', trim($readme));
+    }
+
+    public function test_scaffold_with_git_initializes_and_commits(): void
+    {
+        $scaffolder = new PackageScaffolder;
+        $result = $scaffolder->scaffold($this->root, 'alex-kassel/git-pkg', 'library', true, false, false);
+
+        $this->assertSame('initialized', $result['git']);
+        $packageDir = $this->root.'/packages/alex-kassel/git-pkg';
+        $this->assertDirectoryExists($packageDir.'/.git');
+
+        $statusResult = Process::path($packageDir)->run(['git', 'status', '--porcelain']);
+        $this->assertTrue($statusResult->successful());
+        $this->assertSame('', trim($statusResult->output()));
     }
 }

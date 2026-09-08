@@ -25,7 +25,7 @@ class ReleaseChecker
      *     checks: array<string, array{name: string, status: string, message: string}>
      * }
      */
-    public function check(string $root, string $package): array
+    public function check(string $root, string $package, bool $fast = false): array
     {
         $root = realpath($root);
         if ($root === false) {
@@ -163,15 +163,24 @@ class ReleaseChecker
         }
 
         // 4. Code Quality Suite (PackageVerifier with standalone installation)
-        $verifyResult = $this->verifier->verify($root, $package, false, null, true);
+        $runIsolated = ! $fast;
+        $verifyResult = $this->verifier->verify($root, $package, false, null, $runIsolated);
         $qualityPassed = $verifyResult['status'] === 'passed';
-        foreach (['composer', 'pint', 'phpstan', 'tests', 'isolated'] as $requiredCheck) {
+        $requiredChecks = ['composer', 'pint', 'phpstan', 'tests'];
+        if ($runIsolated) {
+            $requiredChecks[] = 'isolated';
+        }
+        foreach ($requiredChecks as $requiredCheck) {
             $qualityPassed = $qualityPassed && ($verifyResult['checks'][$requiredCheck]['status'] ?? null) === 'passed';
         }
         $checks['code_quality'] = [
-            'name' => 'Code Quality Suite (Pint, PHPStan, Tests, Composer, Isolated)',
+            'name' => $runIsolated
+                ? 'Code Quality Suite (Pint, PHPStan, Tests, Composer, Isolated)'
+                : 'Code Quality Suite (Pint, PHPStan, Tests, Composer [fast])',
             'status' => $qualityPassed ? 'passed' : 'failed',
-            'message' => $qualityPassed ? 'All quality, tests, and standalone installation checks passed.' : 'Required quality checks failed or are incomplete. Run php artisan pkg:check --isolated for details.',
+            'message' => $qualityPassed
+                ? ($runIsolated ? 'All quality, tests, and standalone installation checks passed.' : 'All fast quality checks (Pint, PHPStan, Tests, Composer) passed.')
+                : 'Required quality checks failed or are incomplete.',
         ];
 
         // 5. README Standard Compliance (ReadmeValidator)

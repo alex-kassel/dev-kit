@@ -119,6 +119,9 @@ php artisan pkg:remove alex-kassel/my-package --force
 # Scaffold a new library or engine package interactively
 php artisan pkg:make my-vendor/my-package --archetype=engine
 
+# Scaffold, initialize git repo, and link dependencies in host automatically
+php artisan pkg:make my-vendor/my-package --git --register --update
+
 # Run the complete quality verification suite
 php artisan pkg:check alex-kassel/dev-kit
 
@@ -134,6 +137,9 @@ php artisan pkg:readme alex-kassel/dev-kit
 
 # Run pre-flight checks before tagging a release
 php artisan pkg:release-check alex-kassel/dev-kit
+
+# Run rapid pre-flight checks (skips isolated sandbox for fast local patches)
+php artisan pkg:release-check alex-kassel/dev-kit --fast
 ```
 
 ---

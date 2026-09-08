@@ -14,6 +14,7 @@ class ReleaseCheckPackageCommand extends Command
 {
     protected $signature = 'pkg:release-check
         {package : The vendor/package name or relative package path}
+        {--fast : Skip isolated standalone installation check for rapid local verification}
         {--json : Output machine-readable JSON summary}';
 
     protected $description = 'Run pre-flight release-gate checks (clean tree, audit freshness, quality, README)';
@@ -23,9 +24,10 @@ class ReleaseCheckPackageCommand extends Command
         $rawPackage = $this->argument('package');
         $package = is_string($rawPackage) ? $rawPackage : '';
         $isJson = (bool) $this->option('json');
+        $fast = (bool) $this->option('fast');
 
         try {
-            $result = $checker->check($this->laravel->basePath(), $package);
+            $result = $checker->check($this->laravel->basePath(), $package, $fast);
         } catch (RuntimeException $e) {
             if ($isJson) {
                 $this->line(json_encode([

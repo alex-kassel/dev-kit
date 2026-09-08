@@ -214,4 +214,46 @@ class ReleaseCheckerTest extends TestCase
         $this->assertSame('action_required', $result['checks']['audit_freshness']['status']);
         $this->assertStringContainsString('missing a certified commit hash', $result['checks']['audit_freshness']['message']);
     }
+
+    public function test_check_fast_skips_isolated_verification(): void
+    {
+        $pkgDir = $this->root.'/packages/alex-kassel/test-pkg';
+        mkdir($pkgDir, 0777, true);
+        file_put_contents($pkgDir.'/composer.json', json_encode(['name' => 'alex-kassel/test-pkg']));
+        file_put_contents($pkgDir.'/.gitattributes', "* text=auto\n/tests export-ignore\n");
+
+        (new Process(['git', 'init', '-b', 'main'], $pkgDir))->mustRun();
+        (new Process(['git', 'config', 'user.email', 'test@example.com'], $pkgDir))->mustRun();
+        (new Process(['git', 'config', 'user.name', 'Test Runner'], $pkgDir))->mustRun();
+        (new Process(['git', 'add', '.'], $pkgDir))->mustRun();
+        (new Process(['git', 'commit', '-m', 'feat: initial commit'], $pkgDir))->mustRun();
+
+        $verifier = $this->createMock(PackageVerifier::class);
+        $verifier->expects($this->once())
+            ->method('verify')
+            ->with($this->anything(), 'alex-kassel/test-pkg', false, null, false)
+            ->willReturn([
+                'package' => 'alex-kassel/test-pkg',
+                'path' => 'packages/alex-kassel/test-pkg',
+                'status' => 'passed',
+                'summary' => ['passed' => 4, 'failed' => 0, 'skipped' => 0, 'not_configured' => 0],
+                'checks' => array_fill_keys(['composer', 'pint', 'phpstan', 'tests'], ['status' => 'passed']),
+            ]);
+
+        $readmeValidator = $this->createStub(ReadmeValidator::class);
+        $readmeValidator->method('validate')->willReturn([
+            'package' => 'alex-kassel/test-pkg',
+            'path' => 'packages/alex-kassel/test-pkg',
+            'status' => 'passed',
+            'summary' => ['passed' => 7, 'failed' => 0],
+            'checks' => [],
+        ]);
+
+        $checker = new ReleaseChecker($verifier, $readmeValidator);
+        $result = $checker->check($this->root, 'alex-kassel/test-pkg', true);
+
+        $this->assertSame('READY', $result['verdict']);
+        $this->assertSame('passed', $result['checks']['code_quality']['status']);
+        $this->assertStringContainsString('[fast]', $result['checks']['code_quality']['name']);
+    }
 }

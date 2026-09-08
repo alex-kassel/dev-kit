@@ -35,7 +35,8 @@ class IsolatedPackageVerifier
             if (! is_file($project.'/'.$configuration)) {
                 throw new RuntimeException('Standalone verification requires phpunit.xml or phpunit.xml.dist.');
             }
-            // Keep dependency installation and Composer configuration outside the host.
+            // Keep dependency installation and Composer configuration outside the host,
+            // while allowing Composer to reuse cached package archives.
             $environment = [
                 'COMPOSER' => false, 'COMPOSER_HOME' => $temporary.'/composer-home',
                 'COMPOSER_VENDOR_DIR' => $project.'/vendor', 'COMPOSER_BIN_DIR' => $project.'/vendor/bin',
@@ -43,6 +44,10 @@ class IsolatedPackageVerifier
                 'APP_ENV' => 'testing', 'CACHE_STORE' => 'array', 'CACHE_DRIVER' => 'array',
                 'SESSION_DRIVER' => 'array', 'QUEUE_CONNECTION' => 'sync', 'MAIL_MAILER' => 'array',
             ];
+            $cacheDir = $this->resolveComposerCacheDir();
+            if ($cacheDir !== null) {
+                $environment['COMPOSER_CACHE_DIR'] = $cacheDir;
+            }
             $output[] = $this->run(['composer', 'install', '--prefer-dist', '--no-interaction', '--no-progress'], $project, $environment);
             $binary = is_file($project.'/tests/Pest.php') ? 'pest' : 'phpunit';
             if (! is_file($project.'/vendor/bin/'.$binary)) {
@@ -118,5 +123,37 @@ class IsolatedPackageVerifier
         }
 
         return $result->output();
+    }
+
+    private function resolveComposerCacheDir(): ?string
+    {
+        $envCache = getenv('COMPOSER_CACHE_DIR');
+        if (is_string($envCache) && $envCache !== '' && is_dir($envCache)) {
+            return $envCache;
+        }
+
+        $home = getenv('COMPOSER_HOME');
+        if (is_string($home) && $home !== '' && is_dir($home.'/cache')) {
+            return $home.'/cache';
+        }
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            $localAppData = getenv('LOCALAPPDATA');
+            if (is_string($localAppData) && is_dir($localAppData.'/Composer')) {
+                return $localAppData.'/Composer';
+            }
+        } else {
+            $homeDir = getenv('HOME');
+            if (is_string($homeDir)) {
+                if (is_dir($homeDir.'/.cache/composer')) {
+                    return $homeDir.'/.cache/composer';
+                }
+                if (is_dir($homeDir.'/.composer/cache')) {
+                    return $homeDir.'/.composer/cache';
+                }
+            }
+        }
+
+        return null;
     }
 }

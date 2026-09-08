@@ -12,13 +12,17 @@ This skill guides the pre-flight verification, version tagging, and Packagist re
 ## Operational Workflow
 
 1. **Run Automated Pre-Flight Release Gate**:
-   Execute the automated release check tool:
+   Execute the automated release check tool (note: `pkg:release-check` already subsumes the full `pkg:check` quality suite, so running `pkg:check` beforehand is redundant):
    ```bash
-   composer pkg:release-check <vendor>/<package-name>
+   php artisan pkg:release-check <vendor>/<package-name>
+   ```
+   *For rapid local iteration (skips isolated sandbox):*
+   ```bash
+   php artisan pkg:release-check <vendor>/<package-name> --fast
    ```
    *Or with JSON output:*
    ```bash
-   composer pkg:release-check <vendor>/<package-name> --json
+   php artisan pkg:release-check <vendor>/<package-name> --json
    ```
 
 2. **Handle Release Verdict**:

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-09-09
+
+### Added
+- Added `--fast` option to `pkg:release-check` (`ReleaseCheckPackageCommand` and `ReleaseChecker`) to enable rapid local pre-flight checks by skipping the isolated sandbox when testing minor patches.
+- Added `--update` option to `pkg:make` (`MakePackageCommand`) to automatically run `composer update` on the host after registering a newly scaffolded package.
+- Automatic initial Git commit (`feat: scaffold initial <package> package`) in `PackageScaffolder` when `--git` is passed.
+- Declared testing dependencies (`orchestra/testbench` and `phpunit/phpunit`) in `require-dev` of scaffolded packages to guarantee isolated test runner availability.
+
+### Performance
+- Enabled Composer cache directory reuse (`COMPOSER_CACHE_DIR`) in `IsolatedPackageVerifier`, preventing repeated downloads of 80+ packages from the network and dramatically accelerating standalone package verification.
+
 ## [0.2.4] - 2026-09-09
 
 ### Fixed

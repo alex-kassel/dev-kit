@@ -75,7 +75,13 @@ class PackageScaffolder
                 $gitDir = $packageDir.DIRECTORY_SEPARATOR.'.git';
                 if (! is_dir($gitDir)) {
                     $result = Process::path($packageDir)->run(['git', 'init', '-b', 'main']);
-                    $gitStatus = $result->successful() ? 'initialized' : 'failed';
+                    if ($result->successful()) {
+                        Process::path($packageDir)->run(['git', 'add', '.']);
+                        $commitResult = Process::path($packageDir)->run(['git', 'commit', '-m', "feat: scaffold initial {$packageName} package"]);
+                        $gitStatus = $commitResult->successful() ? 'initialized' : 'failed';
+                    } else {
+                        $gitStatus = 'failed';
+                    }
                 } else {
                     $gitStatus = 'already_initialized';
                 }
@@ -142,6 +148,10 @@ class PackageScaffolder
             'require' => [
                 'php' => '^8.2 || ^8.3 || ^8.4',
                 'illuminate/support' => '^11.0 || ^12.0 || ^13.0',
+            ],
+            'require-dev' => [
+                'orchestra/testbench' => '^9.0 || ^10.0 || ^11.0',
+                'phpunit/phpunit' => '^11.0 || ^12.0',
             ],
             'autoload' => [
                 'psr-4' => [
