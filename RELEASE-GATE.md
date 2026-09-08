@@ -8,8 +8,8 @@
 ## 📋 Executive Release Summary
 
 - **Package Name:** `alex-kassel/dev-kit`
-- **Target Release Version:** `0.2.1`
-- **Target Branch / Commit:** `main` (`f5f75cc`)
+- **Target Release Version:** `0.2.0`
+- **Target Branch / Commit:** `main` (`d5a5f6e`)
 - **Release Verdict:** `READY`
 - **Audit Framework Version:** `1.0.0`
 - **Certification Date:** 2026-09-08

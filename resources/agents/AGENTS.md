@@ -17,8 +17,9 @@
 4. **Git Hygiene & Explicit Reporting**:
    - **Pull-Before-Commit**: Before staging or committing changes, run `git pull --rebase` (or check the remote tracking branch) in the affected repository to prevent collisions.
    - **Atomic Commits**: Maintain atomic semantic commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`) in the respective package repositories.
-   - **Explicit Reporting**: Always provide an explicit commit report to the user (repository path, commit hash, commit message).
+   - **Explicit Reporting**: Always provide an explicit commit report to the user (repository path, commit hash, commit message). When changes are pushed to remote, always include direct clickable Markdown web links to the GitHub repository, commits, and release tags (e.g. `[hash](https://github.com/<vendor>/<package>/commit/<hash>)`).
    - **Git Safety**: Do not modify global or local `git config` without explicit user permission, and never force-push release tags (`v*`).
+   - **Audit Certificate Invariant**: `RELEASE-GATE.md` is strictly an audit artifact produced exclusively by `composer pkg:audit`. Never manually edit versions, commit hashes, or verdicts in `RELEASE-GATE.md` during routine releases or patch commits.
 5. **Technical Rigor & Critical Review**:
    - Base technical statements on verifiable facts, code inspection, and test results. Avoid unsubstantiated claims.
    - Critically evaluate technical decisions against established software engineering standards and Laravel ecosystem conventions. If an approach introduces technical debt or anti-patterns, explain the trade-offs and propose standard alternatives.

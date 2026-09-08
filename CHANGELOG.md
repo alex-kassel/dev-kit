@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-09-08
+
+### Fixed
+- Restored certified `RELEASE-GATE.md` audit snapshot (`0.2.0` / `d5a5f6e`) upholding the audit certificate immutability invariant.
+- Codified explicit clickable Markdown reporting protocol (GitHub repository, commit, tag, and Packagist URLs) across repository guidelines and release skills.
+
 ## [0.2.1] - 2026-09-08
 
 ### Fixed
