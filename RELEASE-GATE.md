@@ -8,15 +8,15 @@
 ## 📋 Executive Release Summary
 
 - **Package Name:** `alex-kassel/dev-kit`
-- **Target Release Version:** `0.1.0`
-- **Target Branch / Commit:** `main` (`26c3837`)
+- **Target Release Version:** `0.2.0`
+- **Target Branch / Commit:** `main` (`d5a5f6e`)
 - **Release Verdict:** `READY`
 - **Audit Framework Version:** `1.0.0`
-- **Certification Date:** 2026-09-07
+- **Certification Date:** 2026-09-08
 - **Known Release Blockers:** `0`
 - **Critical Defects:** `0`
 - **Static Analysis Errors:** `0` (PHPStan Level `8`)
-- **Automated Test Assertions:** `316` / `316` passed (`111` tests, `0` failures, `1` skipped)
+- **Automated Test Assertions:** `320` / `320` passed (`112` tests, `0` failures, `1` skipped)
 
 ---
 
@@ -69,8 +69,8 @@ Status: PASS
 {
   "audit_run": "packages/alex-kassel/dev-kit/.audit/latest/",
   "package": "alex-kassel/dev-kit",
-  "commit": "26c38379e943da863d318d94254513a9b6fdf30e",
-  "version": "0.1.0",
+  "commit": "d5a5f6e05bf008a72f65fb70139124ef6b16c525",
+  "version": "0.2.0",
   "framework": "https://github.com/alex-kassel/laravel-package-audit",
   "framework_version": "1.0.0",
   "environment": {

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-08
+
+### Added
+- Native `laravel/boost` integration (`^2.0`): automatic dependency ingestion and invocation of `boost:install` during `pkg:install`.
+- Seamless AI guidelines composition: `<dev-kit-guidelines>` and `<laravel-boost-guidelines>` co-exist and merge safely in `AGENTS.md`.
+- Customizable package scaffolding stubs: extracted 11 archetype templates into `stubs/*.stub` with `vendor:publish --tag=dev-kit-stubs` override support.
+- Modernized CLI output powered by Termwind (`nunomaduro/termwind` `^2.0`) across all console commands (`pkg:check`, `pkg:list`, `pkg:make`, `pkg:readme`, `pkg:release-check`).
+
+### Changed
+- Replaced Symfony Process execution with Laravel's `Illuminate\Support\Facades\Process` and concurrent `Process::pool()`.
+- Replaced direct PHP file operations with Laravel's `Illuminate\Support\Facades\File` (`Illuminate\Filesystem\Filesystem`).
+- Replaced direct directory management in `FileLock` with `File::ensureDirectoryExists()`.
+
+### Fixed
+- Fixed unsupported text sizing utility classes in Termwind console templates.
+
 ## [0.1.0] - 2026-09-07
 
 ### Fixed
