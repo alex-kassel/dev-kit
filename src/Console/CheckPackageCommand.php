@@ -157,7 +157,7 @@ class CheckPackageCommand extends Command
 
             if ($check['status'] === 'failed' && ! empty($check['output'])) {
                 render(<<<HTML
-                    <div class="my-1 p-1 bg-red-950 text-red-200">
+                    <div class="my-1 p-1 bg-red-900 text-red-200">
                         <pre>{$check['output']}</pre>
                     </div>
                 HTML);

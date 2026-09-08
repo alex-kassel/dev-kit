@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.2] - 2026-09-08
+## [0.2.4] - 2026-09-09
+
+### Fixed
+- Replaced unsupported Termwind class `bg-red-950` with `bg-red-900` in `CheckPackageCommand` to prevent `ColorNotFound` exception when check output is displayed.
+- Fixed string concatenation formatting in `stubs/bootstrap.php.stub` to ensure newly scaffolded packages pass Pint `concat_space` verification out of the box.
+- Removed non-existent `tests/Feature` suite from `stubs/phpunit.xml.stub` to prevent PHPUnit 11/12 fatal directory errors on freshly scaffolded packages.
+
+## [0.2.3] - 2026-09-08
+
+### Added
+- Complete Laravel Boost integration: automatic manifest generation and MCP configuration with skills installation during `pkg:install`.
 
 ### Fixed
 - Restored certified `RELEASE-GATE.md` audit snapshot (`0.2.0` / `d5a5f6e`) upholding the audit certificate immutability invariant.
