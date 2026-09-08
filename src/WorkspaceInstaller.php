@@ -66,6 +66,7 @@ class WorkspaceInstaller
             $writes['.gitignore'] = $ignore.($ignore !== '' && ! str_ends_with($ignore, "\n") ? $newline : '').'/packages/*/*'.$newline;
         }
 
+        $this->prepareBoostConfig($root, $writes);
         $this->collectAgentWrites($root, $writes, $force);
 
         $packages = $root.'/packages';
@@ -287,6 +288,45 @@ class WorkspaceInstaller
         }
 
         return $devKitContent;
+    }
+
+    /**
+     * @param  array<string, string>  $writes
+     */
+    private function prepareBoostConfig(string $root, array &$writes): void
+    {
+        $boostPath = $root.'/boost.json';
+        if (! File::exists($boostPath)) {
+            $boostConfig = [
+                'cloud' => false,
+                'guidelines' => false,
+                'agents' => ['antigravity'],
+            ];
+            $writes['boost.json'] = json_encode($boostConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n";
+        } else {
+            try {
+                $existing = json_decode($this->read($boostPath), true, 512, JSON_THROW_ON_ERROR);
+            } catch (\Throwable) {
+                return;
+            }
+
+            if (is_array($existing)) {
+                $modified = false;
+                /** @var list<string> $currentAgents */
+                $currentAgents = isset($existing['agents']) && is_array($existing['agents']) ? $existing['agents'] : [];
+                if (! in_array('antigravity', $currentAgents, true)) {
+                    $existing['agents'] = array_values(array_unique(array_merge($currentAgents, ['antigravity'])));
+                    $modified = true;
+                }
+                if (($existing['guidelines'] ?? null) !== false) {
+                    $existing['guidelines'] = false;
+                    $modified = true;
+                }
+                if ($modified) {
+                    $writes['boost.json'] = json_encode($existing, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n";
+                }
+            }
+        }
     }
 
     private function read(string $path): string

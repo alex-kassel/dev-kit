@@ -49,17 +49,20 @@ class InstallCommand extends Command
         if ($this->option('json')) {
             $this->line(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         } else {
-            $this->info(match ($result['status']) {
-                'unchanged' => 'Workspace is already prepared.',
-                'planned' => 'Planned changes: '.implode(', ', $result['files']),
-                default => 'Workspace prepared: '.implode(', ', $result['files']),
-            });
+            if ($result['status'] === 'unchanged') {
+                $this->info('Workspace is already prepared.');
+            } else {
+                $header = $result['status'] === 'planned' ? 'Planned workspace changes:' : 'Workspace prepared:';
+                $this->info($header);
+                foreach ($result['files'] as $file) {
+                    $this->line("  - {$file}");
+                }
+            }
         }
 
         if (! $isDryRun && $this->getApplication()?->has('boost:install')) {
             $this->call('boost:install', [
                 '--no-interaction' => true,
-                '--guidelines' => true,
                 '--skills' => true,
             ]);
         }

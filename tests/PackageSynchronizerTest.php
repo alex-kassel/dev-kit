@@ -157,12 +157,12 @@ class PackageSynchronizerTest extends TestCase
         $composerData = json_decode((string) file_get_contents($this->root.'/composer.json'), true);
         $this->assertIsArray($composerData);
 
-        // Should be converted to @dev in require
+        // pkg-a was in require, so it should be @dev in require
         $this->assertSame('@dev', $composerData['require']['alex-kassel/pkg-a']);
-        $this->assertSame('@dev', $composerData['require']['alex-kassel/dev-kit']);
 
-        // Must be removed from require-dev to avoid conflict
-        $this->assertArrayNotHasKey('alex-kassel/dev-kit', $composerData['require-dev']);
+        // dev-kit was in require-dev, so it must stay in require-dev as @dev
+        $this->assertArrayNotHasKey('alex-kassel/dev-kit', $composerData['require']);
+        $this->assertSame('@dev', $composerData['require-dev']['alex-kassel/dev-kit']);
         $this->assertSame('^11.0', $composerData['require-dev']['phpunit/phpunit']);
     }
 

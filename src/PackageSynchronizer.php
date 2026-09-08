@@ -75,7 +75,9 @@ class PackageSynchronizer
             : [];
 
         $existingDevPackages = [];
+        $existingDevPackagesDev = [];
         $systemRequire = [];
+        $systemRequireDev = [];
 
         foreach ($currentRequire as $pkgName => $pkgVersion) {
             if ($pkgVersion === '@dev') {
@@ -85,9 +87,18 @@ class PackageSynchronizer
             }
         }
 
+        foreach ($currentRequireDev as $pkgName => $pkgVersion) {
+            if ($pkgVersion === '@dev') {
+                $existingDevPackagesDev[$pkgName] = $pkgVersion;
+            } else {
+                $systemRequireDev[$pkgName] = $pkgVersion;
+            }
+        }
+
         $discoveredPackages = $this->discoverPackages($root);
 
         $packagesToRegister = [];
+        $packagesToRegisterDev = [];
         if (! $clean) {
             foreach ($discoveredPackages as $name => $meta) {
                 if ($filter !== null) {
@@ -95,23 +106,32 @@ class PackageSynchronizer
                         continue;
                     }
                 }
-                $packagesToRegister[$name] = '@dev';
 
-                // If package was previously declared in systemRequire or require-dev with a SemVer constraint (e.g. ^0.0.2),
-                // remove the rigid constraint so the local path repository (@dev) takes precedence without conflict.
-                unset($systemRequire[$name]);
-                if (isset($currentRequireDev[$name])) {
-                    unset($currentRequireDev[$name]);
+                $isDevDependency = (isset($currentRequireDev[$name]) || isset($existingDevPackagesDev[$name]))
+                    && ! isset($currentRequire[$name]);
+
+                if ($isDevDependency) {
+                    $packagesToRegisterDev[$name] = '@dev';
+                    unset($systemRequireDev[$name]);
+                } else {
+                    $packagesToRegister[$name] = '@dev';
+                    unset($systemRequire[$name]);
+                    if (isset($systemRequireDev[$name])) {
+                        unset($systemRequireDev[$name]);
+                    }
                 }
             }
         }
 
+        $allRegistered = array_merge($packagesToRegister, $packagesToRegisterDev);
+        $allExisting = array_merge($existingDevPackages, $existingDevPackagesDev);
+
         /** @var list<string> $added */
-        $added = array_keys(array_diff_key($packagesToRegister, $existingDevPackages));
+        $added = array_keys(array_diff_key($allRegistered, $allExisting));
         /** @var list<string> $removed */
-        $removed = array_keys(array_diff_key($existingDevPackages, $packagesToRegister));
+        $removed = array_keys(array_diff_key($allExisting, $allRegistered));
         /** @var list<string> $retained */
-        $retained = array_keys(array_intersect_key($packagesToRegister, $existingDevPackages));
+        $retained = array_keys(array_intersect_key($allRegistered, $allExisting));
 
         $newRequire = $systemRequire;
         ksort($packagesToRegister);
@@ -119,9 +139,15 @@ class PackageSynchronizer
             $newRequire[$pkgName] = $version;
         }
 
+        $newRequireDev = $systemRequireDev;
+        ksort($packagesToRegisterDev);
+        foreach ($packagesToRegisterDev as $pkgName => $version) {
+            $newRequireDev[$pkgName] = $version;
+        }
+
         $composerData['require'] = $newRequire;
-        if (isset($composerData['require-dev']) && is_array($composerData['require-dev'])) {
-            $composerData['require-dev'] = $currentRequireDev;
+        if (isset($composerData['require-dev']) || $newRequireDev !== []) {
+            $composerData['require-dev'] = $newRequireDev;
         }
 
         // Ensure path repository exists
@@ -159,7 +185,7 @@ class PackageSynchronizer
             'clean_mode' => $clean,
             'filter' => $filter,
             'total_discovered_on_disk' => count($discoveredPackages),
-            'registered_count' => count($packagesToRegister),
+            'registered_count' => count($allRegistered),
             'added' => $added,
             'removed' => $removed,
             'retained' => $retained,

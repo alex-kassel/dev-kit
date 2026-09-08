@@ -43,9 +43,9 @@ class PackageCloner
 
         $buildCloneArgs = function (string $url) use ($hasExplicitBranch, $branch, $staging): array {
             $args = ['-c', 'core.autocrlf=input', 'clone', '--single-branch'];
-            if ($hasExplicitBranch && $branch !== null) {
+            if ($hasExplicitBranch) {
                 $args[] = '--branch';
-                $args[] = $branch;
+                $args[] = (string) $branch;
             }
             $args[] = '--no-recurse-submodules';
             $args[] = '--';
