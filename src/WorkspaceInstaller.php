@@ -68,6 +68,7 @@ class WorkspaceInstaller
 
         $this->prepareBoostConfig($root, $writes);
         $this->collectAgentWrites($root, $writes, $force);
+        $this->prepareReadme($root, $writes, $force);
 
         $packages = $root.'/packages';
         if (File::exists($packages) && ! File::isDirectory($packages)) {
@@ -370,6 +371,43 @@ class WorkspaceInstaller
                 }
             }
         }
+    }
+
+    /**
+     * @param  array<string, string>  $writes
+     */
+    private function prepareReadme(string $root, array &$writes, bool $force): void
+    {
+        $stubPath = __DIR__.'/../resources/workspace/README.md';
+        if (! File::exists($stubPath)) {
+            return;
+        }
+
+        $readmeContent = $this->read($stubPath);
+        $targetPath = $root.'/README.md';
+
+        if (! File::exists($targetPath)) {
+            $writes['README.md'] = $readmeContent;
+
+            return;
+        }
+
+        $existing = $this->read($targetPath);
+        if (str_replace("\r\n", "\n", $existing) === str_replace("\r\n", "\n", $readmeContent)) {
+            return;
+        }
+
+        $isDefaultSkeleton = $this->isDefaultLaravelReadme($existing);
+
+        if ($force || $isDefaultSkeleton) {
+            $writes['README.md'] = $readmeContent;
+        }
+    }
+
+    private function isDefaultLaravelReadme(string $content): bool
+    {
+        return str_contains($content, 'raw.githubusercontent.com/laravel/art/master/logo-lockup')
+            || (str_contains($content, '## About Laravel') && str_contains($content, 'Laravel is a web application framework'));
     }
 
     private function read(string $path): string

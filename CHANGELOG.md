@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.5] - 2026-09-09
+## [0.2.6] - 2026-09-09
+
+### Added
+- Automated modular workspace `README.md` scaffolding in `WorkspaceInstaller` (`pkg:install`), replacing default Laravel skeleton README files with a tailored developer and AI agent guide.
+- Codified explicit Performance & Rapid Verification principles across `AGENTS.md` and skills (`package-release`, `package-scaffolding`, `package-verification`).
 
 ### Added
 - Added `--fast` option to `pkg:release-check` (`ReleaseCheckPackageCommand` and `ReleaseChecker`) to enable rapid local pre-flight checks by skipping the isolated sandbox when testing minor patches.

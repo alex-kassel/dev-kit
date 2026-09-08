@@ -258,4 +258,57 @@ class WorkspaceInstallerTest extends TestCase
         $this->assertFileExists($this->root.'/CLAUDE.md');
         $this->assertSame('# My Custom Claude Instructions', file_get_contents($this->root.'/CLAUDE.md'));
     }
+
+    public function test_installs_workspace_readme_when_missing(): void
+    {
+        $installer = new WorkspaceInstaller;
+        $result = $installer->install($this->root);
+
+        $this->assertSame('installed', $result['status']);
+        $this->assertContains('README.md', $result['files']);
+        $this->assertFileExists($this->root.'/README.md');
+        $this->assertStringContainsString('# Modular Laravel Workspace', file_get_contents($this->root.'/README.md'));
+    }
+
+    public function test_overwrites_default_laravel_readme_without_force(): void
+    {
+        $installer = new WorkspaceInstaller;
+        $laravelReadme = <<<'MD'
+<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+
+## About Laravel
+
+Laravel is a web application framework with expressive, elegant syntax.
+MD;
+        file_put_contents($this->root.'/README.md', $laravelReadme);
+
+        $result = $installer->install($this->root);
+
+        $this->assertSame('installed', $result['status']);
+        $this->assertContains('README.md', $result['files']);
+        $this->assertStringContainsString('# Modular Laravel Workspace', file_get_contents($this->root.'/README.md'));
+    }
+
+    public function test_preserves_custom_readme_without_force(): void
+    {
+        $installer = new WorkspaceInstaller;
+        file_put_contents($this->root.'/README.md', '# My Custom Workspace Project');
+
+        $result = $installer->install($this->root, false, false);
+
+        $this->assertNotContains('README.md', $result['files']);
+        $this->assertSame('# My Custom Workspace Project', file_get_contents($this->root.'/README.md'));
+    }
+
+    public function test_overwrites_custom_readme_with_force(): void
+    {
+        $installer = new WorkspaceInstaller;
+        file_put_contents($this->root.'/README.md', '# My Custom Workspace Project');
+
+        $result = $installer->install($this->root, false, true);
+
+        $this->assertSame('installed', $result['status']);
+        $this->assertContains('README.md', $result['files']);
+        $this->assertStringContainsString('# Modular Laravel Workspace', file_get_contents($this->root.'/README.md'));
+    }
 }
