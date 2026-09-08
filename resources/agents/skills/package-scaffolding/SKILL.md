@@ -17,9 +17,9 @@ This skill guides the deterministic, non-destructive creation of new packages in
    - Determine package archetype (`library` by default, `engine` for capability cores, `domain` for business domains). See [Archetypes Reference](./references/archetypes.md).
 
 2. **Execute Scaffolding Generator**:
-   Run the deterministic CLI scaffolding tool:
+   Run the deterministic CLI scaffolding tool with `--git`, `--register`, and `--update` (auto-commits initial files and links locally):
    ```bash
-   composer pkg:make <vendor>/<package-name> --archetype=<type> --git --register
+   php artisan pkg:make <vendor>/<package-name> --archetype=<type> --git --register --update
    ```
    *Tip: You can preview generated files first using `--dry-run --json`.*
 

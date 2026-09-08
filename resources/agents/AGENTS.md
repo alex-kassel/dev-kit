@@ -28,6 +28,10 @@
 7. **Toolchain Dependencies**:
    - `alex-kassel/dev-kit` deliberately declares verification engines (`phpunit/phpunit`, `orchestra/testbench`, `phpstan/phpstan`) in its `require` section so that installing it as a dev dependency (`--dev`) in the host makes the full toolchain immediately available in `vendor/bin/`. Do not move these dependencies to `require-dev`.
 
+8. **Performance & Rapid Verification**:
+   - For routine local bug fixes and patch releases, always use `php artisan pkg:release-check <pkg> --fast`. Do not run `pkg:check` and `pkg:release-check` back-to-back since `release-check` already subsumes all quality checks.
+   - When scaffolding new packages, always pass `--update` (`php artisan pkg:make <pkg> --git --register --update`) to immediately link the local package in host Composer without manual steps.
+
 ---
 
 ## 2. Automated CLI Tooling (Run from Root)
@@ -38,10 +42,10 @@
 | `php artisan pkg:clone <pkg>` | Clone package from remote Git repo and auto-register in host | `--branch=...`, `--recursive`, `--org=...`, `--dry-run`, `--json` |
 | `php artisan pkg:list` | Inventory of local packages and Composer installation/link status | `--json` |
 | `php artisan pkg:sync` | Synchronize local packages with root `composer.json` | `--clean`, `--filter=PATTERN`, `--dry-run`, `--json` |
-| `php artisan pkg:check <pkg>` | Run full quality checks (Composer, Pint, PHPStan Level 8, Tests) | `--all`, `--fix`, `--only=...`, `--json` |
-| `php artisan pkg:make <pkg>` | Scaffold new package with standard files and archetype | `--git`, `--register`, `--archetype=...`, `--dry-run`, `--json` |
+| `php artisan pkg:check <pkg>` | Run full quality checks (Composer, Pint, PHPStan Level 8, Tests) | `--all`, `--fix`, `--only=...`, `--isolated`, `--json` |
+| `php artisan pkg:make <pkg>` | Scaffold new package (auto-commits with `--git`; links with `--update`) | `--git`, `--register`, `--update`, `--archetype=...`, `--dry-run`, `--json` |
 | `php artisan pkg:readme <pkg>` | Validate README structure against the 7-badge standard | `--json` |
-| `php artisan pkg:release-check <pkg>` | Run pre-flight release-gate checks before tagging | `--json` |
+| `php artisan pkg:release-check <pkg>` | Run pre-flight release-gate checks (`--fast` skips sandbox for speed) | `--fast`, `--json` |
 | `composer test:tooling` | Self-test the monorepo automation scripts | |
 
 ---
